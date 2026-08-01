@@ -71,8 +71,122 @@ function saveStaticDb(db) {
   localStorage.setItem('flowspace_static_db', JSON.stringify(db));
 }
 
+async function fetchSupabaseState(user) {
+  const sb = getSupabase();
+  if (!sb || !user || !user.email) return null;
+
+  try {
+    const userEmail = user.email.toLowerCase();
+
+    // 1. Get members for this email to find workspaces
+    const { data: userMems, error: memErr } = await sb.from('members').select('*').eq('email', userEmail);
+    if (memErr) return null;
+
+    let wsIds = (userMems || []).map(m => m.workspace_id || m.workspaceId);
+
+    // 2. Fetch User Workspaces
+    let userWorkspaces = [];
+    if (wsIds.length > 0) {
+      const { data: wsData } = await sb.from('workspaces').select('*').in('id', wsIds);
+      userWorkspaces = wsData || [];
+    }
+
+    // Default workspace if none exists in DB
+    if (userWorkspaces.length === 0) {
+      const name = user.name || userEmail.split('@')[0];
+      const { data: newWs } = await sb.from('workspaces').insert([{
+        name: `${name}'s Workspace`,
+        description: 'Default workspace'
+      }]).select();
+
+      if (newWs && newWs[0]) {
+        const ws = newWs[0];
+        userWorkspaces = [ws];
+        wsIds = [ws.id];
+        await sb.from('members').insert([{
+          workspace_id: ws.id,
+          name: user.name || name,
+          email: userEmail,
+          initials: (user.name || name).slice(0, 2).toUpperCase(),
+          color: '#7c3aed',
+          role: 'Workspace admin'
+        }]);
+      }
+    }
+
+    // 3. Active Workspace Selection
+    let activeId = localStorage.getItem('flowspace_active_workspace');
+    if (!activeId || !userWorkspaces.some(w => w.id === activeId)) {
+      activeId = userWorkspaces[0]?.id || '';
+      localStorage.setItem('flowspace_active_workspace', activeId);
+    }
+    const activeWorkspace = userWorkspaces.find(w => w.id === activeId) || userWorkspaces[0] || null;
+
+    // 4. Fetch Active Workspace Data
+    let workspaceMembers = [], workspaceTasks = [], workspaceProjects = [], workspaceInvites = [];
+    if (activeId) {
+      const { data: mems } = await sb.from('members').select('*').eq('workspace_id', activeId);
+      workspaceMembers = (mems || []).map(m => ({ ...m, workspaceId: m.workspace_id || m.workspaceId }));
+
+      const { data: tsks } = await sb.from('tasks').select('*').eq('workspace_id', activeId);
+      workspaceTasks = (tsks || []).map(t => ({ ...t, workspaceId: t.workspace_id || t.workspaceId, projectId: t.project_id || t.projectId, assigneeId: t.assignee_id || t.assigneeId, dueDate: t.due_date || t.dueDate }));
+
+      const { data: projs } = await sb.from('projects').select('*').eq('workspace_id', activeId);
+      workspaceProjects = (projs || []).map(p => ({ ...p, workspaceId: p.workspace_id || p.workspaceId }));
+
+      const { data: invs } = await sb.from('invites').select('*').eq('workspace_id', activeId);
+      workspaceInvites = (invs || []).map(i => ({ ...i, workspaceId: i.workspace_id || i.workspaceId }));
+    }
+
+    if (workspaceProjects.length === 0 && activeWorkspace) {
+      const { data: newProj } = await sb.from('projects').insert([{
+        workspace_id: activeWorkspace.id,
+        name: 'Product launch',
+        description: 'Plan and ship milestone'
+      }]).select();
+      if (newProj && newProj[0]) {
+        workspaceProjects = [{ ...newProj[0], workspaceId: newProj[0].workspace_id }];
+      }
+    }
+
+    // 5. Fetch Received Invites across all workspaces for this email
+    const { data: recInvs } = await sb.from('invites').select('*').eq('email', userEmail);
+    let receivedInvites = [];
+    if (recInvs && recInvs.length > 0) {
+      const allWsIds = recInvs.map(i => i.workspace_id || i.workspaceId);
+      const { data: invWs } = await sb.from('workspaces').select('*').in('id', allWsIds);
+      const wsMap = new Map((invWs || []).map(w => [w.id, w.name]));
+      receivedInvites = recInvs.map(i => ({
+        ...i,
+        workspaceId: i.workspace_id || i.workspaceId,
+        workspaceName: wsMap.get(i.workspace_id || i.workspaceId) || i.workspaceName || 'Unknown Workspace'
+      }));
+    }
+
+    const pendingUserInvites = receivedInvites.filter(i => i.status === 'Pending');
+
+    return {
+      workspace: activeWorkspace,
+      workspaces: userWorkspaces,
+      activeWorkspaceId: activeId,
+      projects: workspaceProjects,
+      members: workspaceMembers,
+      invites: workspaceInvites,
+      tasks: workspaceTasks,
+      activity: [],
+      notifications: [],
+      pendingInvites: pendingUserInvites,
+      receivedInvites: receivedInvites
+    };
+  } catch (e) {
+    console.warn('Supabase DB notice:', e);
+    return null;
+  }
+}
+
 async function handleStaticClientApi(urlStr, opts = {}, user = null) {
   const db = getStaticDb();
+  const sb = getSupabase();
   const urlObj = new URL(urlStr, window.location.origin);
   const path = urlObj.pathname;
   const method = (opts.method || 'GET').toUpperCase();
@@ -104,6 +218,16 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     db.workspaces.push(ws);
     db.members.push(m);
     saveStaticDb(db);
+
+    if (sb) {
+      try {
+        const { data: newWs } = await sb.from('workspaces').insert([{ name: ws.name, description: ws.description }]).select();
+        if (newWs && newWs[0]) {
+          await sb.from('members').insert([{ workspace_id: newWs[0].id, name: u.name, email: u.email, initials: u.name.slice(0,2).toUpperCase(), color: '#7c3aed', role: 'Workspace admin' }]);
+        }
+      } catch (e) {}
+    }
+
     return { id: u.id, name: u.name, email: u.email };
   }
 
@@ -119,6 +243,12 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
   // 2. Fetch State
   if (method === 'GET' && path === '/api/state') {
     if (!user) throw new Error('Unauthorized');
+
+    // Attempt Live Supabase PostgreSQL fetch first!
+    if (sb) {
+      const sbState = await fetchSupabaseState(user);
+      if (sbState) return sbState;
+    }
     
     db.invites.forEach(inv => {
       if (inv.status === 'Declined' || inv.status === 'Pending') {
@@ -181,14 +311,23 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     const uRecord = db.users.find(x => x.id === user.id || x.email.toLowerCase() === user.email.toLowerCase());
     if (uRecord) uRecord.activeWorkspaceId = ws.id;
     saveStaticDb(db);
+
+    if (sb) {
+      try {
+        const { data: newWs } = await sb.from('workspaces').insert([{ name: ws.name, description: ws.description }]).select();
+        if (newWs && newWs[0]) {
+          await sb.from('members').insert([{ workspace_id: newWs[0].id, name: user.name, email: user.email, initials: user.name.slice(0,2).toUpperCase(), color: '#7c3aed', role: 'Workspace admin' }]);
+        }
+      } catch (e) {}
+    }
+
     return ws;
   }
 
   if (method === 'POST' && path.includes('/select')) {
     const parts = path.split('/');
     const wsId = parts[3];
-    const isMem = db.members.some(m => m.workspaceId === wsId && m.email.toLowerCase() === user.email.toLowerCase());
-    if (!isMem) throw new Error('Access denied to workspace');
+    localStorage.setItem('flowspace_active_workspace', wsId);
     const uRecord = db.users.find(x => x.id === user.id || x.email.toLowerCase() === user.email.toLowerCase());
     if (uRecord) uRecord.activeWorkspaceId = wsId;
     saveStaticDb(db);
@@ -197,11 +336,10 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
 
   // 4. Tasks
   if (method === 'POST' && path === '/api/tasks') {
-    const uRecord = db.users.find(x => x.id === user.id || x.email.toLowerCase() === user.email.toLowerCase());
-    const wsId = uRecord?.activeWorkspaceId || 'ws-1';
+    const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
     const task = {
       id: 't-' + Date.now(),
-      workspaceId: wsId,
+      workspaceId: activeWsId,
       projectId: body.projectId || '',
       title: body.title,
       description: body.description || '',
@@ -216,6 +354,23 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     };
     db.tasks.push(task);
     saveStaticDb(db);
+
+    if (sb) {
+      try {
+        await sb.from('tasks').insert([{
+          workspace_id: activeWsId,
+          project_id: body.projectId || null,
+          title: body.title,
+          description: body.description || '',
+          status: body.status || 'todo',
+          priority: body.priority || 'medium',
+          assignee_id: body.assigneeId || null,
+          due_date: body.dueDate || null,
+          tags: body.tags || []
+        }]);
+      } catch (e) {}
+    }
+
     return task;
   }
 
@@ -226,6 +381,16 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       Object.assign(t, body);
       saveStaticDb(db);
     }
+    if (sb) {
+      try {
+        await sb.from('tasks').update({
+          status: body.status,
+          title: body.title,
+          description: body.description,
+          priority: body.priority
+        }).eq('id', taskId);
+      } catch (e) {}
+    }
     return t;
   }
 
@@ -233,19 +398,23 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     const taskId = path.split('/')[3];
     db.tasks = db.tasks.filter(x => x.id !== taskId);
     saveStaticDb(db);
+    if (sb) {
+      try {
+        await sb.from('tasks').delete().eq('id', taskId);
+      } catch (e) {}
+    }
     return { ok: true };
   }
 
   // 5. Invites
   if (method === 'POST' && path === '/api/invites') {
-    const uRecord = db.users.find(x => x.id === user.id || x.email.toLowerCase() === user.email.toLowerCase());
-    const wsId = uRecord?.activeWorkspaceId || 'ws-1';
-    const ws = db.workspaces.find(w => w.id === wsId);
+    const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+    const ws = db.workspaces.find(w => w.id === activeWsId);
     const invite = {
       id: 'inv-' + Date.now(),
-      workspaceId: wsId,
+      workspaceId: activeWsId,
       workspaceName: ws ? ws.name : 'Workspace',
-      email: body.email.trim(),
+      email: body.email.trim().toLowerCase(),
       name: body.name || body.email.split('@')[0],
       role: body.role || 'Workspace member',
       status: 'Pending',
@@ -253,6 +422,18 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     };
     db.invites.push(invite);
     saveStaticDb(db);
+
+    if (sb) {
+      try {
+        await sb.from('invites').insert([{
+          workspace_id: activeWsId,
+          email: body.email.trim().toLowerCase(),
+          role: body.role || 'Workspace member',
+          status: 'Pending'
+        }]);
+      } catch (e) {}
+    }
+
     return invite;
   }
 
@@ -262,9 +443,25 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       invite.status = 'Accepted';
       const m = { id: 'm-' + Date.now(), workspaceId: invite.workspaceId, name: user.name, email: user.email, initials: user.name.slice(0,2).toUpperCase(), color: '#0ea5e9', role: invite.role || 'Workspace member' };
       db.members.push(m);
-      const uRecord = db.users.find(x => x.id === user.id || x.email.toLowerCase() === user.email.toLowerCase());
-      if (uRecord) uRecord.activeWorkspaceId = invite.workspaceId;
+      localStorage.setItem('flowspace_active_workspace', invite.workspaceId);
       saveStaticDb(db);
+    }
+    if (sb) {
+      try {
+        await sb.from('invites').update({ status: 'Accepted' }).eq('id', body.id);
+        const { data: targetInv } = await sb.from('invites').select('*').eq('id', body.id).single();
+        if (targetInv) {
+          await sb.from('members').insert([{
+            workspace_id: targetInv.workspace_id,
+            name: user.name,
+            email: user.email.toLowerCase(),
+            initials: user.name.slice(0,2).toUpperCase(),
+            color: '#0ea5e9',
+            role: targetInv.role || 'Workspace member'
+          }]);
+          localStorage.setItem('flowspace_active_workspace', targetInv.workspace_id);
+        }
+      } catch (e) {}
     }
     return { ok: true };
   }
@@ -275,6 +472,15 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       invite.status = 'Declined';
       db.members = db.members.filter(m => !(m.workspaceId === invite.workspaceId && m.email.toLowerCase() === user.email.toLowerCase()));
       saveStaticDb(db);
+    }
+    if (sb) {
+      try {
+        await sb.from('invites').update({ status: 'Declined' }).eq('id', body.id);
+        const { data: targetInv } = await sb.from('invites').select('*').eq('id', body.id).single();
+        if (targetInv) {
+          await sb.from('members').delete().eq('workspace_id', targetInv.workspace_id).eq('email', user.email.toLowerCase());
+        }
+      } catch (e) {}
     }
     return { ok: true };
   }

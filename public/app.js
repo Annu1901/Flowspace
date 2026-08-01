@@ -283,6 +283,12 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
 
   // 2. Fetch State
   if (method === 'GET' && path === '/api/state') {
+    if (sb) {
+      try {
+        const supaState = await fetchSupabaseState(user);
+        if (supaState) return supaState;
+      } catch (e) {}
+    }
     if (!user) throw new Error('Unauthorized');
 
     // Attempt Live Supabase PostgreSQL fetch first!
@@ -2864,6 +2870,5 @@ async function init() {
 }
 
 init().catch(e => {
-  console.error(e);
-  document.body.innerHTML = '<main><h1>Could not start Flowspace</h1><p>Please check that the server is running.</p></main>';
+  console.error('Initialization warning:', e);
 });

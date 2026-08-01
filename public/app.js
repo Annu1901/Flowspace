@@ -487,13 +487,38 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
 
   if (method === 'PATCH' && path === '/api/account') {
     const uRecord = db.users.find(x => x.id === user.id || x.email.toLowerCase() === user.email.toLowerCase());
+    const newName = body.name ? body.name.trim() : (uRecord ? uRecord.name : user.name);
+    const newEmail = body.email ? body.email.trim().toLowerCase() : (uRecord ? uRecord.email : user.email);
+
     if (uRecord) {
-      if (body.name) uRecord.name = body.name.trim();
-      if (body.email) uRecord.email = body.email.trim();
+      if (body.name) uRecord.name = newName;
+      if (body.email) uRecord.email = newEmail;
       if (body.password) uRecord.password = body.password;
-      saveStaticDb(db);
-      return { id: uRecord.id, name: uRecord.name, email: uRecord.email };
     }
+
+    db.members.forEach(m => {
+      if (m.email.toLowerCase() === user.email.toLowerCase()) {
+        m.name = newName;
+        m.email = newEmail;
+        m.initials = newName.split(' ').map(x=>x[0]).join('').toUpperCase().slice(0,2);
+        if (body.color) m.color = body.color;
+        if (body.role) m.role = body.role;
+      }
+    });
+
+    saveStaticDb(db);
+
+    if (sb) {
+      try {
+        const newInitials = newName.split(' ').map(x=>x[0]).join('').toUpperCase().slice(0,2);
+        const updateFields = { name: newName, email: newEmail, initials: newInitials };
+        if (body.color) updateFields.color = body.color;
+        if (body.role) updateFields.role = body.role;
+        await sb.from('members').update(updateFields).eq('email', user.email.toLowerCase());
+      } catch (e) {}
+    }
+
+    return { id: user.id, name: newName, email: newEmail };
   }
 
   return { ok: true };
@@ -1133,16 +1158,14 @@ function renderTeam() {
 function renderProfile() {
   const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
   if (!user) return;
-  const m = state.members.find(x => x.email.toLowerCase() === user.email.toLowerCase()) || {
-    name: user.name,
-    initials: user.name.split(' ').map(x=>x[0]).join('').toUpperCase().slice(0,2),
-    color: '#7c3aed',
-    role: 'Workspace admin'
-  };
-  $('#user-name').textContent = m.name;
-  $('#user-role').textContent = m.role || 'Workspace admin';
-  $('#user-avatar').textContent = m.initials;
-  $('#user-avatar').style.background = m.color;
+  const m = state.members.find(x => x.email.toLowerCase() === user.email.toLowerCase());
+  const displayName = user.name || (m ? m.name : user.email.split('@')[0]);
+  const initials = displayName.split(' ').map(x=>x[0]).join('').toUpperCase().slice(0,2);
+
+  $('#user-name').textContent = displayName;
+  $('#user-role').textContent = m ? (m.role || 'Workspace admin') : 'Workspace admin';
+  $('#user-avatar').textContent = initials;
+  $('#user-avatar').style.background = m ? (m.color || '#7c3aed') : '#7c3aed';
 }
 
 function renderAccountView() {
@@ -1156,9 +1179,32 @@ function renderAccountView() {
   };
   
   // Set inputs
-  if (document.activeElement !== $('#acc-name')) $('#acc-name').value = user.name;
-  if (document.activeElement !== $('#acc-email')) $('#acc-email').value = user.email;
+  if (document.activeElement !== $('#acc-name')) $('#acc-name').value = user.name || '';
+  if (document.activeElement !== $('#acc-email')) $('#acc-email').value = user.email || '';
   $('#acc-role').value = m.role || 'Workspace admin';
+
+  // Wire Account Form Submission Handler
+  const accForm = $('#account-form');
+  if (accForm && !accForm.dataset.bound) {
+    accForm.dataset.bound = 'true';
+    accForm.onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        const payload = Object.fromEntries(new FormData(accForm));
+        const updated = await api('/api/account', { method: 'PATCH', body: JSON.stringify(payload) });
+        
+        const currentUser = JSON.parse(localStorage.getItem('flowspace_user') || '{}');
+        const newUser = { ...currentUser, name: updated.name || payload.name, email: updated.email || payload.email };
+        localStorage.setItem('flowspace_user', JSON.stringify(newUser));
+        
+        toast('Account settings updated successfully!');
+        await refresh();
+        renderProfile();
+      } catch (err) {
+        toast(err.message || 'Failed to update account settings');
+      }
+    };
+  }
   
   // Render color swatches
   const colors = ['#7c3aed', '#0ea5e9', '#f97316', '#3b82f6', '#10b981', '#ef4444', '#ec4899', '#14b8a6'];

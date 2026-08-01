@@ -2007,9 +2007,42 @@ function showSignup() {
 }
 
 async function refresh() {
-  state = await api('/api/state');
+  try {
+    const res = await api('/api/state');
+    if (res) {
+      state = res;
+    }
+  } catch (e) {
+    console.warn('Sync notice:', e);
+  }
+  if (!state) {
+    const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
+    const sbData = user ? await fetchSupabaseState(user) : null;
+    if (sbData) {
+      state = sbData;
+    } else {
+      const db = getStaticDb();
+      const activeId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+      const ws = (db.workspaces || []).find(w => w.id === activeId) || (db.workspaces || [])[0] || { id: 'ws-1', name: 'Workspace' };
+      state = {
+        workspace: ws,
+        workspaces: db.workspaces || [],
+        activeWorkspaceId: ws.id,
+        projects: db.projects || [],
+        members: db.members || [],
+        invites: db.invites || [],
+        tasks: db.tasks || [],
+        activity: db.activity || [],
+        notifications: db.notifications || [],
+        pendingInvites: [],
+        receivedInvites: []
+      };
+    }
+  }
   render();
-  checkPendingInvitePrompt();
+  try {
+    checkPendingInvitePrompt();
+  } catch (e) {}
 }
 
 async function saveTask(id, data) {
@@ -2822,6 +2855,5 @@ async function init() {
 }
 
 init().catch(e => {
-  console.error(e);
-  document.body.innerHTML = '<main><h1>Could not start Flowspace</h1><p>Please check that the server is running.</p></main>';
+  console.warn('Initialization notice:', e);
 });

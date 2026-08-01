@@ -385,15 +385,41 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       } catch (e) {}
     }
 
+    const notifText = `${user ? user.name : 'A member'} created task "${task.title}".`;
+    const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, read: false, at: new Date().toISOString() };
+    if (!db.notifications) db.notifications = [];
+    db.notifications.unshift(notifObj);
+    saveStaticDb(db);
+    if (sb) {
+      try {
+        await sb.from('notifications').insert([{ workspace_id: activeWsId, text: notifText, read: false }]);
+      } catch (e) {}
+    }
+
     return task;
   }
 
   if (method === 'PATCH' && path.startsWith('/api/tasks/')) {
     const taskId = path.split('/')[3];
+    const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
     const t = db.tasks.find(x => x.id === taskId);
     if (t) {
       Object.assign(t, body);
       saveStaticDb(db);
+      
+      const notifText = body.status === 'done'
+        ? `🎉 ${user ? user.name : 'A member'} marked task "${t.title}" as completed!`
+        : `${user ? user.name : 'A member'} updated task "${t.title}".`;
+        
+      const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, read: false, at: new Date().toISOString() };
+      if (!db.notifications) db.notifications = [];
+      db.notifications.unshift(notifObj);
+      saveStaticDb(db);
+      if (sb) {
+        try {
+          await sb.from('notifications').insert([{ workspace_id: activeWsId, text: notifText, read: false }]);
+        } catch (e) {}
+      }
     }
     if (sb) {
       try {
@@ -539,6 +565,20 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
           await sb.from('members').delete().eq('workspace_id', activeWsId).eq('email', targetEmail);
           await sb.from('invites').delete().eq('workspace_id', activeWsId).eq('email', targetEmail);
         }
+      } catch (e) {}
+    }
+    return { ok: true };
+  }
+
+  if (path.includes('/api/notifications/read')) {
+    if (db.notifications) {
+      db.notifications.forEach(n => n.read = true);
+      saveStaticDb(db);
+    }
+    if (sb) {
+      try {
+        const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+        await sb.from('notifications').update({ read: true }).eq('workspace_id', activeWsId);
       } catch (e) {}
     }
     return { ok: true };
@@ -1689,35 +1729,74 @@ function close() {
   activeTask = null;
 }
 
+function getMemberDisplayName(m) {
+  if (!m) return 'Unassigned';
+  const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
+  if (user && user.email && m.email && m.email.toLowerCase() === user.email.toLowerCase()) {
+    return user.name || m.name || m.email.split('@')[0];
+  }
+  return m.name || m.email.split('@')[0];
+}
+
 function taskForm(t = { status: 'todo', priority: 'medium', tags: [] }) {
   const isAdmin = getCurrentRole() === 'Workspace admin';
+  const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
+  const userMember = user ? state.members.find(x => x.email.toLowerCase() === user.email.toLowerCase()) : null;
+  const isCreatorOrAssignee = user && (
+    (t.createdBy && t.createdBy.toLowerCase() === user.email.toLowerCase()) || 
+    (t.assigneeId === user.id) || 
+    (userMember && t.assigneeId === userMember.id)
+  );
+  const canDeleteTask = isAdmin || isCreatorOrAssignee;
+
   const projects = state.projects || [];
   const activeProj = getActiveProject();
   const selectedProjId = t.projectId || activeProj?.id || projects[0]?.id || '';
 
   const projSelectMarkup = `<div class="field"><label>PROJECT</label><select name="projectId">${projects.map(p => `<option value="${p.id}" ${p.id === selectedProjId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>`;
 
-  return `<div class="modal"><div class="modal-head"><h2>${t.id ? 'Edit task' : 'Create a task'}</h2><button class="close">×</button></div><form id="task-form"><div class="form-grid"><div class="field full"><label>TASK TITLE</label><input required name="title" value="${esc(t.title || '')}" placeholder="What needs to happen?"></div><div class="field full"><label>DESCRIPTION</label><textarea name="description">${esc(t.description || '')}</textarea></div>${projSelectMarkup}<div class="field"><label>ASSIGNEE</label><select name="assigneeId"><option value="">Unassigned</option>${state.members.map(m => `<option value="${m.id}" ${m.id === t.assigneeId ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></div><div class="field"><label>DUE DATE</label><input type="date" name="dueDate" value="${t.dueDate || ''}"></div><div class="field"><label>STATUS</label><select name="status">${statuses.map(([k, n]) => `<option value="${k}" ${t.status === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label>PRIORITY</label><select name="priority">${['urgent', 'high', 'medium', 'low'].map(p => `<option ${t.priority === p ? 'selected' : ''}>${p}</option>`).join('')}</select></div><div class="field full"><label>TAG</label><input name="tag" value="${esc(t.tags?.[0] || '')}" placeholder="e.g. Design"></div></div><div class="modal-foot">${t.id && isAdmin ? '<button type="button" class="danger" id="delete-task">Delete task</button>' : ''}<button type="button" class="secondary cancel">Cancel</button><button class="primary">Save task</button></div></form></div>`;
+  return `<div class="modal"><div class="modal-head"><h2>${t.id ? 'Edit task' : 'Create a task'}</h2><button class="close">×</button></div><form id="task-form"><div class="form-grid"><div class="field full"><label>TASK TITLE</label><input required name="title" value="${esc(t.title || '')}" placeholder="What needs to happen?"></div><div class="field full"><label>DESCRIPTION</label><textarea name="description">${esc(t.description || '')}</textarea></div>${projSelectMarkup}<div class="field"><label>ASSIGNEE</label><select name="assigneeId"><option value="">Unassigned</option>${state.members.map(m => `<option value="${m.id}" ${m.id === t.assigneeId ? 'selected' : ''}>${esc(getMemberDisplayName(m))}</option>`).join('')}</select></div><div class="field"><label>DUE DATE</label><input type="date" name="dueDate" value="${t.dueDate || ''}"></div><div class="field"><label>STATUS</label><select name="status">${statuses.map(([k, n]) => `<option value="${k}" ${t.status === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label>PRIORITY</label><select name="priority">${['urgent', 'high', 'medium', 'low'].map(p => `<option ${t.priority === p ? 'selected' : ''}>${p}</option>`).join('')}</select></div><div class="field full"><label>TAG</label><input name="tag" value="${esc(t.tags?.[0] || '')}" placeholder="e.g. Design"></div></div><div class="modal-foot">${t.id && canDeleteTask ? '<button type="button" class="danger" id="delete-task">🗑️ Delete task</button>' : ''}<button type="button" class="secondary cancel">Cancel</button><button class="primary">${t.id ? 'Save task' : 'Create task'}</button></div></form></div>`;
 }
 
 function wireTaskForm(t) {
   $('#task-form').onsubmit = async e => {
     e.preventDefault();
-    const f = Object.fromEntries(new FormData(e.target));
-    f.tags = f.tag ? [f.tag] : [];
-    delete f.tag;
-    if (t.id) await saveTask(t.id, f);
-    else await api('/api/tasks', { method: 'POST', body: JSON.stringify(f) }), await refresh();
-    close();
-    toast(t.id ? 'Task updated - progress refreshed' : 'Task created');
+    const submitBtn = e.target.querySelector('button.primary');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+    }
+    try {
+      const f = Object.fromEntries(new FormData(e.target));
+      f.tags = f.tag ? [f.tag] : [];
+      delete f.tag;
+      if (t.id) {
+        await saveTask(t.id, f);
+      } else {
+        await api('/api/tasks', { method: 'POST', body: JSON.stringify(f) });
+        await refresh();
+      }
+      close();
+      toast(t.id ? 'Task updated - progress refreshed' : 'Task created successfully');
+    } catch (err) {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = t.id ? 'Save task' : 'Create task';
+      }
+      toast(err.message || 'Failed to save task');
+    }
   };
   if (t.id && $('#delete-task')) {
     $('#delete-task').onclick = async () => {
-      if (confirm('Delete this task?')) {
-        await api('/api/tasks/' + t.id, { method: 'DELETE' });
-        await refresh();
-        close();
-        toast('Task deleted');
+      if (confirm('Are you sure you want to delete this task?')) {
+        try {
+          await api('/api/tasks/' + t.id, { method: 'DELETE' });
+          await refresh();
+          close();
+          toast('Task deleted successfully');
+        } catch (err) {
+          toast(err.message || 'Failed to delete task');
+        }
       }
     };
   }
@@ -1746,17 +1825,28 @@ function openTask(id) {
     ? ''
     : `<form id="comment-form" class="field"><textarea required name="text" placeholder="Write a comment…"></textarea><button class="primary" style="align-self:flex-end">Add comment</button></form>`;
 
+  const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
+  const userMember = user ? state.members.find(x => x.email.toLowerCase() === user.email.toLowerCase()) : null;
+  const isCreatorOrAssignee = user && (
+    (t.createdBy && t.createdBy.toLowerCase() === user.email.toLowerCase()) || 
+    (t.assigneeId === user.id) || 
+    (userMember && t.assigneeId === userMember.id)
+  );
+  const canDeleteTask = isAdmin || isCreatorOrAssignee;
+  const deleteBtnMarkup = canDeleteTask ? `<button type="button" class="danger" id="delete-task-detail-btn" style="background:#ef4444;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer">🗑️ Delete task</button>` : '';
+
   const footActions = canModify
-    ? `<button class="secondary" id="edit-task">Edit task</button>${t.status !== 'done' ? '<button class="primary" id="complete-task">Mark completed</button>' : ''}${isNear && isAdmin ? '<button class="secondary" id="alert-task">Send reminder</button>' : ''}`
-    : (role === 'Workspace member' ? '<p style="font-size:12px;color:var(--muted);padding:8px 0">Assigned to another member (Read-only view)</p>' : '');
+    ? `<button class="secondary" id="edit-task">Edit task</button>${t.status !== 'done' ? '<button class="primary" id="complete-task">Mark completed</button>' : ''}${deleteBtnMarkup}${isNear && isAdmin ? '<button class="secondary" id="alert-task">Send reminder</button>' : ''}`
+    : (canDeleteTask ? deleteBtnMarkup : (role === 'Workspace member' ? '<p style="font-size:12px;color:var(--muted);padding:8px 0">Assigned to another member (Read-only view)</p>' : ''));
 
   const m = member(t.assigneeId);
+  const mName = getMemberDisplayName(m);
   const assigneeBox = `
     <div class="task-assignee-box" style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--violet);border:1px solid var(--line);border-radius:10px;margin-top:16px">
       <span class="avatar" style="background:${m ? m.color : '#94a3b8'};width:38px;height:38px;font-size:12px">${m ? m.initials : '?'}</span>
       <div>
         <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">ASSIGNED TO</div>
-        <div style="font-size:14px;font-weight:700;color:var(--ink);margin-top:2px">${m ? esc(m.name) : 'Unassigned'} ${m ? `<span style="font-size:12px;font-weight:500;color:var(--muted)">(${esc(m.email)})</span>` : ''}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--ink);margin-top:2px">${esc(mName)} ${m ? `<span style="font-size:12px;font-weight:500;color:var(--muted)">(${esc(m.email)})</span>` : ''}</div>
       </div>
     </div>
   `;
@@ -1792,6 +1882,21 @@ function openTask(id) {
       </div>
     </div>
   `);
+
+  if ($('#delete-task-detail-btn')) {
+    $('#delete-task-detail-btn').onclick = async () => {
+      if (confirm('Are you sure you want to delete this task?')) {
+        try {
+          await api(`/api/tasks/${t.id}`, { method: 'DELETE' });
+          await refresh();
+          close();
+          toast('Task deleted successfully');
+        } catch (e) {
+          toast(e.message || 'Failed to delete task');
+        }
+      }
+    };
+  }
 
   if (canModify) {
     if ($('#edit-task')) $('#edit-task').onclick = () => {

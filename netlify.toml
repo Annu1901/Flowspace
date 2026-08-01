@@ -2,11 +2,10 @@
   publish = "public"
   command = "true"
 
+[build.environment]
+  SECRETS_SCAN_ENABLED = "false"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-[build.environment]
-  SUPABASE_URL = "https://ovvbrwqyjdeomzezhacu.supabase.co"
-  SUPABASE_ANON_KEY = "sb_publishable_3UnL1xJOnf9cLMaLTd-zJA_ztW4WeRy"

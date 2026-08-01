@@ -1,0 +1,1143 @@
+{
+  "users": [
+    {
+      "id": "u1",
+      "name": "Annu Dagar",
+      "email": "annu@northstar.dev",
+      "password": "password123",
+      "activeWorkspaceId": "workspace-1"
+    },
+    {
+      "id": "u2",
+      "name": "Ayush Mishra",
+      "email": "ayush@northstar.dev",
+      "password": "password123",
+      "activeWorkspaceId": "workspace-1"
+    },
+    {
+      "id": "u3",
+      "name": "Maya Chen",
+      "email": "maya@northstar.dev",
+      "password": "password123",
+      "activeWorkspaceId": "workspace-1"
+    },
+    {
+      "id": "dbbf40ed-3b9b-4c7c-8bb9-2ab89e2c00f8",
+      "name": "Verification Tester",
+      "email": "tester-1784030978408@flowspace.dev",
+      "password": "password123"
+    },
+    {
+      "id": "4c8a9ede-ba34-4a5e-97e2-be875c34de3e",
+      "name": "Browser Tester",
+      "email": "browsertest@flowspace.dev",
+      "password": "password123",
+      "activeWorkspaceId": "7ac40f64-9b79-4320-b263-b56eea518fa6"
+    },
+    {
+      "id": "48d9436a-23a5-4354-ace2-fc1a1e49cd80",
+      "name": "Verification Tester",
+      "email": "tester-1784032254454@flowspace.dev",
+      "password": "password123",
+      "activeWorkspaceId": "cd30ca19-46a6-4e34-b4e4-f0da32a2b5e6"
+    },
+    {
+      "id": "a3794ae5-2846-4eca-aead-b3b833819bb1",
+      "name": "Temp User",
+      "email": "temp@flowspace.dev",
+      "password": "password",
+      "activeWorkspaceId": "48d18cbf-387f-4c4b-9707-4a35e6a5cb00"
+    },
+    {
+      "id": "9c01dda7-0731-4f85-b8d6-396b316659eb",
+      "name": "Test User",
+      "email": "testuser@northstar.dev",
+      "password": "password",
+      "activeWorkspaceId": "60171dad-3377-48dc-b3e5-1449bfaaaf22"
+    },
+    {
+      "id": "067c1566-0824-48ad-b7db-a88af9d4a92c",
+      "name": "Test Admin",
+      "email": "testadmin@northstar.dev",
+      "password": "password",
+      "activeWorkspaceId": "4c0821f2-87f7-42c5-b75f-acf3b084220b"
+    },
+    {
+      "id": "4acd3db0-090d-4ca6-9321-e4c6df43f76d",
+      "name": "Test Member",
+      "email": "testmember@northstar.dev",
+      "password": "password123",
+      "activeWorkspaceId": "workspace-1"
+    },
+    {
+      "id": "3f5f1161-e6d6-4659-845e-e3fe2ba8d2f3",
+      "name": "Ayush",
+      "email": "aayu21082005@gmail.com",
+      "password": "Ayush@2108",
+      "activeWorkspaceId": "5b69a7f7-0dbf-4b4a-b018-9dbe57394e06"
+    },
+    {
+      "id": "28a1b655-e7a4-4d29-a29c-4e3cd16a5917",
+      "name": "Annu",
+      "email": "dagarannu40@gmail.com",
+      "password": "Annu@1901",
+      "activeWorkspaceId": "e3cd5d49-e688-4fce-a4a7-5100142a5b50"
+    }
+  ],
+  "workspace": {
+    "id": "7ac40f64-9b79-4320-b263-b56eea518fa6",
+    "name": "Browser Tester's Workspace",
+    "description": "Your default workspace",
+    "createdAt": "2026-07-14T12:13:17.197Z"
+  },
+  "workspaces": [
+    {
+      "id": "workspace-1",
+      "name": "Northstar Studio",
+      "description": "The product team workspace",
+      "createdAt": "2026-07-14T05:43:25.613Z"
+    },
+    {
+      "id": "1229352e-af5b-4a45-8fd6-189e7d255848",
+      "name": "SSE Live Sync Test Workspace",
+      "description": "Verifying SSE broadcast functionality",
+      "createdAt": "2026-07-14T05:43:26.617Z"
+    },
+    {
+      "id": "07e3dc94-198c-4805-b231-4bdc513d6265",
+      "name": "New Workspace Test",
+      "description": "Testing workspace creation",
+      "createdAt": "2026-07-14T06:01:07.318Z"
+    },
+    {
+      "id": "4748105b-80c1-4cf0-9d59-533f83b0bae1",
+      "name": "New Workspace 2",
+      "description": "Validating fixed flow",
+      "createdAt": "2026-07-14T06:07:48.185Z"
+    },
+    {
+      "id": "fa0b45f9-bfde-4463-8916-afa1caf12ff3",
+      "name": "Verification Tester's Workspace",
+      "description": "Your default workspace",
+      "createdAt": "2026-07-14T12:09:38.450Z"
+    },
+    {
+      "id": "7ac40f64-9b79-4320-b263-b56eea518fa6",
+      "name": "Browser Tester's Workspace",
+      "description": "Your default workspace",
+      "createdAt": "2026-07-14T12:13:17.197Z"
+    },
+    {
+      "id": "cd30ca19-46a6-4e34-b4e4-f0da32a2b5e6",
+      "name": "Verification Tester's Workspace",
+      "description": "Your default workspace",
+      "createdAt": "2026-07-14T12:30:54.504Z"
+    },
+    {
+      "id": "48d18cbf-387f-4c4b-9707-4a35e6a5cb00",
+      "name": "Temp User's Workspace",
+      "description": "Your default workspace",
+      "createdAt": "2026-07-31T14:32:22.390Z"
+    },
+    {
+      "id": "60171dad-3377-48dc-b3e5-1449bfaaaf22",
+      "name": "Test User's Workspace",
+      "description": "Your default workspace",
+      "createdAt": "2026-07-31T14:53:15.236Z"
+    },
+    {
+      "id": "4c0821f2-87f7-42c5-b75f-acf3b084220b",
+      "name": "Test Admin's Workspace",
+      "description": "Your default workspace",
+      "createdAt": "2026-07-31T15:47:08.392Z"
+    },
+    {
+      "id": "e22295b8-2e23-4425-8b26-285aabf445c8",
+      "name": "Test Member's Workspace",
+      "description": "Your default workspace",
+      "createdAt": "2026-07-31T16:09:42.487Z"
+    },
+    {
+      "id": "5b69a7f7-0dbf-4b4a-b018-9dbe57394e06",
+      "name": "Ayush's Workspace",
+      "description": "Your default workspace",
+      "createdAt": "2026-08-01T12:09:05.772Z"
+    },
+    {
+      "id": "e3cd5d49-e688-4fce-a4a7-5100142a5b50",
+      "name": "Annu's Workspace",
+      "description": "Your default workspace",
+      "createdAt": "2026-08-01T13:11:42.703Z"
+    }
+  ],
+  "activeWorkspaceId": "7ac40f64-9b79-4320-b263-b56eea518fa6",
+  "members": [
+    {
+      "id": "m1",
+      "workspaceId": "workspace-1",
+      "name": "Annu Dagar",
+      "email": "annu@northstar.dev",
+      "initials": "AD",
+      "color": "#7c3aed",
+      "role": "Workspace admin"
+    },
+    {
+      "id": "m1-ws2",
+      "workspaceId": "1229352e-af5b-4a45-8fd6-189e7d255848",
+      "name": "Annu Dagar",
+      "email": "annu@northstar.dev",
+      "initials": "AD",
+      "color": "#7c3aed",
+      "role": "Workspace admin"
+    },
+    {
+      "id": "m2",
+      "workspaceId": "workspace-1",
+      "name": "Ayush Mishra",
+      "email": "ayush@northstar.dev",
+      "initials": "AM",
+      "color": "#0ea5e9",
+      "role": "Workspace member"
+    },
+    {
+      "id": "m3",
+      "workspaceId": "workspace-1",
+      "name": "Maya Chen",
+      "email": "maya@northstar.dev",
+      "initials": "MC",
+      "color": "#f97316",
+      "role": "Viewer"
+    },
+    {
+      "id": "19a89e9d-00aa-4ea0-a571-8fe14791f38c",
+      "workspaceId": "fa0b45f9-bfde-4463-8916-afa1caf12ff3",
+      "name": "Verification Tester",
+      "email": "tester-1784030978408@flowspace.dev",
+      "initials": "VT",
+      "color": "#7c3aed",
+      "role": "Workspace admin"
+    },
+    {
+      "id": "e2def173-4e32-454c-b91c-4df06734dd94",
+      "workspaceId": "7ac40f64-9b79-4320-b263-b56eea518fa6",
+      "name": "Browser Tester",
+      "email": "browsertest@flowspace.dev",
+      "initials": "BT",
+      "color": "#14b8a6",
+      "role": "Workspace admin"
+    },
+    {
+      "id": "726b5091-dfad-4398-bc7b-6ad82405a29a",
+      "workspaceId": "cd30ca19-46a6-4e34-b4e4-f0da32a2b5e6",
+      "name": "Verification Tester",
+      "email": "tester-1784032254454@flowspace.dev",
+      "initials": "VT",
+      "color": "#7c3aed",
+      "role": "Workspace admin"
+    },
+    {
+      "id": "40bd89d9-c623-474c-9c94-95b54e7089ae",
+      "workspaceId": "48d18cbf-387f-4c4b-9707-4a35e6a5cb00",
+      "name": "Temp User",
+      "email": "temp@flowspace.dev",
+      "initials": "TU",
+      "color": "#7c3aed",
+      "role": "Workspace admin"
+    },
+    {
+      "id": "38d80d9e-98d0-468a-9c03-026fda2e4e6b",
+      "workspaceId": "60171dad-3377-48dc-b3e5-1449bfaaaf22",
+      "name": "Test User",
+      "email": "testuser@northstar.dev",
+      "initials": "TU",
+      "color": "#7c3aed",
+      "role": "Workspace admin"
+    },
+    {
+      "id": "4f231ec2-4301-4543-8d99-986b08af12bd",
+      "workspaceId": "4c0821f2-87f7-42c5-b75f-acf3b084220b",
+      "name": "Test Admin",
+      "email": "testadmin@northstar.dev",
+      "initials": "TA",
+      "color": "#7c3aed",
+      "role": "Workspace admin"
+    },
+    {
+      "id": "eff3d086-6479-4375-95f3-8d06bf556b64",
+      "workspaceId": "e22295b8-2e23-4425-8b26-285aabf445c8",
+      "name": "Test Member",
+      "email": "testmember@northstar.dev",
+      "initials": "TM",
+      "color": "#7c3aed",
+      "role": "Workspace admin"
+    },
+    {
+      "id": "64e6da50-6121-4279-88ca-03873154498d",
+      "workspaceId": "workspace-1",
+      "name": "Test Member",
+      "email": "testmember@northstar.dev",
+      "initials": "TM",
+      "color": "#0ea5e9",
+      "role": "Member"
+    },
+    {
+      "id": "97323ba2-3a34-4930-924c-6e3b4da7513c",
+      "workspaceId": "5b69a7f7-0dbf-4b4a-b018-9dbe57394e06",
+      "name": "Ayush",
+      "email": "aayu21082005@gmail.com",
+      "initials": "A",
+      "color": "#7c3aed",
+      "role": "Workspace admin"
+    },
+    {
+      "id": "3bb608f8-3d6b-47de-b031-d3dd0c4b1cdc",
+      "workspaceId": "e3cd5d49-e688-4fce-a4a7-5100142a5b50",
+      "name": "Annu",
+      "email": "dagarannu40@gmail.com",
+      "initials": "A",
+      "color": "#7c3aed",
+      "role": "Workspace admin"
+    },
+    {
+      "id": "33df0970-30b2-46fd-bf85-6d2b20552a21",
+      "workspaceId": "5b69a7f7-0dbf-4b4a-b018-9dbe57394e06",
+      "name": "Annu",
+      "email": "dagarannu40@gmail.com",
+      "initials": "A",
+      "color": "#0ea5e9",
+      "role": "Workspace member"
+    }
+  ],
+  "invites": [
+    {
+      "id": "2e7f383e-16ac-43d5-8b50-34b0304917ef",
+      "workspaceId": "5b69a7f7-0dbf-4b4a-b018-9dbe57394e06",
+      "workspaceName": "Ayush's Workspace",
+      "email": "dagarannu40@gmail.com",
+      "name": "Annu Dagar",
+      "role": "Workspace member",
+      "status": "Accepted",
+      "createdAt": "2026-08-01T13:43:23.437Z"
+    },
+    {
+      "id": "93137ba7-7d71-47ae-bf9d-bb43fda952eb",
+      "workspaceId": "workspace-1",
+      "email": "testmember@northstar.dev",
+      "name": "Test Member",
+      "role": "Member",
+      "status": "Accepted",
+      "createdAt": "2026-07-31T16:08:54.965Z"
+    },
+    {
+      "id": "8b1d7da4-e478-4abb-84df-2f98a4f5dfe8",
+      "workspaceId": "7ac40f64-9b79-4320-b263-b56eea518fa6",
+      "email": "browsertest@flowspace.dev",
+      "name": "Browser Tester",
+      "role": "Member",
+      "status": "Accepted",
+      "createdAt": "2026-07-14T12:15:56.176Z"
+    }
+  ],
+  "projects": [
+    {
+      "id": "proj-1",
+      "workspaceId": "workspace-1",
+      "name": "Product launch",
+      "description": "Plan, ship, and celebrate the next milestone.",
+      "createdAt": "2026-07-14T05:43:25.613Z",
+      "updatedAt": "2026-07-14T05:43:25.613Z"
+    },
+    {
+      "id": "proj-2",
+      "workspaceId": "workspace-1",
+      "name": "Mobile App Redesign",
+      "description": "Next-gen iOS & Android interface refresh.",
+      "createdAt": "2026-07-31T16:00:00.000Z",
+      "updatedAt": "2026-07-31T16:00:00.000Z"
+    },
+    {
+      "id": "b8b3f0ea-5f39-47d9-96cf-ddcf227a9259",
+      "workspaceId": "1229352e-af5b-4a45-8fd6-189e7d255848",
+      "name": "Product launch",
+      "description": "Plan, ship, and celebrate the next milestone.",
+      "createdAt": "2026-08-01T05:33:32.527Z",
+      "updatedAt": "2026-08-01T05:33:32.527Z"
+    },
+    {
+      "id": "870b2f9e-5209-45ad-a54d-c6a1bda66fbd",
+      "workspaceId": "5b69a7f7-0dbf-4b4a-b018-9dbe57394e06",
+      "name": "Product launch",
+      "description": "Plan, ship, and celebrate the next milestone.",
+      "createdAt": "2026-08-01T12:09:05.791Z",
+      "updatedAt": "2026-08-01T12:09:05.791Z"
+    },
+    {
+      "id": "f61d3335-d367-4395-a702-5a9f0465945c",
+      "workspaceId": "e3cd5d49-e688-4fce-a4a7-5100142a5b50",
+      "name": "Product launch",
+      "description": "Plan, ship, and celebrate the next milestone.",
+      "createdAt": "2026-08-01T13:11:42.717Z",
+      "updatedAt": "2026-08-01T13:11:42.717Z"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "projectId": "proj-1",
+      "title": "Design the onboarding flow",
+      "description": "Map first-run screens and handoff states.",
+      "status": "review",
+      "priority": "high",
+      "assigneeId": "m1",
+      "dueDate": "2026-07-18",
+      "tags": [
+        "Design"
+      ],
+      "comments": [],
+      "attachments": [],
+      "createdAt": "2026-07-14T05:43:25.613Z",
+      "updatedAt": "2026-07-16T10:52:40.181Z",
+      "workspaceId": "workspace-1"
+    },
+    {
+      "id": "t2",
+      "projectId": "proj-1",
+      "title": "Set up authentication endpoints",
+      "description": "Create secure sign-in and workspace access APIs.",
+      "status": "done",
+      "priority": "urgent",
+      "assigneeId": "m2",
+      "dueDate": "2026-07-16",
+      "tags": [
+        "Backend"
+      ],
+      "comments": [],
+      "attachments": [],
+      "createdAt": "2026-07-14T05:43:25.613Z",
+      "updatedAt": "2026-07-16T10:49:58.872Z",
+      "workspaceId": "workspace-1"
+    },
+    {
+      "id": "t3",
+      "title": "Write launch announcement",
+      "description": "Draft concise copy for the public release.",
+      "status": "done",
+      "priority": "medium",
+      "assigneeId": "m3",
+      "dueDate": "2026-07-21",
+      "tags": [
+        "Content"
+      ],
+      "comments": [],
+      "attachments": [],
+      "createdAt": "2026-07-14T05:43:25.613Z",
+      "updatedAt": "2026-07-16T10:22:57.062Z",
+      "workspaceId": "workspace-1"
+    },
+    {
+      "id": "t4",
+      "title": "Audit dashboard accessibility",
+      "description": "Review keyboard paths and contrast.",
+      "status": "done",
+      "priority": "low",
+      "assigneeId": "m1",
+      "dueDate": "2026-07-12",
+      "tags": [
+        "Quality"
+      ],
+      "comments": [],
+      "attachments": [],
+      "createdAt": "2026-07-14T05:43:25.613Z",
+      "updatedAt": "2026-07-14T05:43:25.613Z",
+      "workspaceId": "workspace-1"
+    },
+    {
+      "id": "6228e524-a5c7-4627-a0e0-a1486b3273a4",
+      "workspaceId": "1229352e-af5b-4a45-8fd6-189e7d255848",
+      "title": "SSE Live Sync Task",
+      "description": "Testing real-time update propagation across clients.",
+      "status": "done",
+      "priority": "medium",
+      "assigneeId": "",
+      "dueDate": "",
+      "tags": [],
+      "comments": [],
+      "attachments": [],
+      "createdAt": "2026-07-14T05:45:42.196Z",
+      "updatedAt": "2026-07-14T05:46:09.452Z",
+      "projectId": "b8b3f0ea-5f39-47d9-96cf-ddcf227a9259"
+    },
+    {
+      "id": "2b353d6a-45e8-4a5b-a3b7-b03d15a2d92e",
+      "workspaceId": "1229352e-af5b-4a45-8fd6-189e7d255848",
+      "title": "SSE Live Sync Task 2",
+      "description": "Testing real-time juklpdate prbopagatgjion acrcxoss clients for task 2.",
+      "status": "progress",
+      "priority": "medium",
+      "assigneeId": "",
+      "dueDate": "",
+      "tags": [],
+      "comments": [],
+      "attachments": [],
+      "createdAt": "2026-07-14T05:51:27.799Z",
+      "updatedAt": "2026-07-14T05:52:49.048Z",
+      "projectId": "b8b3f0ea-5f39-47d9-96cf-ddcf227a9259"
+    },
+    {
+      "id": "9ce2990f-1a48-414f-95a7-c4fa61918789",
+      "workspaceId": "workspace-1",
+      "title": "e",
+      "description": "",
+      "status": "todo",
+      "priority": "medium",
+      "assigneeId": "m2",
+      "dueDate": "2026-07-31",
+      "tags": [
+        "Design"
+      ],
+      "comments": [],
+      "attachments": [],
+      "createdAt": "2026-07-16T10:55:47.033Z",
+      "updatedAt": "2026-07-16T11:03:18.645Z"
+    },
+    {
+      "id": "e70e7427-777d-46ae-882e-b1678f39c309",
+      "workspaceId": "workspace-1",
+      "title": "Test Notification",
+      "description": "",
+      "status": "todo",
+      "priority": "medium",
+      "assigneeId": "m1",
+      "dueDate": "",
+      "tags": [],
+      "comments": [],
+      "attachments": [],
+      "createdAt": "2026-07-31T08:21:11.545Z",
+      "updatedAt": "2026-07-31T08:21:11.546Z"
+    },
+    {
+      "id": "d29bd519-9526-42e3-a12f-d0fa92cefb2e",
+      "workspaceId": "48d18cbf-387f-4c4b-9707-4a35e6a5cb00",
+      "title": "Test Live Sync",
+      "description": "Testing if live sync works across clients",
+      "status": "progress",
+      "priority": "medium",
+      "assigneeId": "",
+      "dueDate": "",
+      "tags": [],
+      "comments": [],
+      "attachments": [],
+      "createdAt": "2026-07-31T14:34:57.044Z",
+      "updatedAt": "2026-07-31T14:35:17.977Z"
+    },
+    {
+      "id": "ce355840-2220-4325-9677-5db5879c0a07",
+      "workspaceId": "workspace-1",
+      "title": "Test Member's Task",
+      "description": "Checking task update permissions.",
+      "status": "todo",
+      "priority": "medium",
+      "assigneeId": "64e6da50-6121-4279-88ca-03873154498d",
+      "dueDate": "",
+      "tags": [],
+      "comments": [],
+      "attachments": [],
+      "createdAt": "2026-07-31T16:11:10.366Z",
+      "updatedAt": "2026-07-31T16:11:10.366Z"
+    }
+  ],
+  "activity": [
+    {
+      "id": "e800ec87-e67e-4ad2-ab3f-5f9114b4225e",
+      "actor": "Annu",
+      "action": "joined the workspace via invite",
+      "task": "",
+      "at": "2026-08-01T13:45:41.522Z"
+    },
+    {
+      "id": "63d9dad8-22dd-4101-9029-8f72ac3985b5",
+      "actor": "Ayush",
+      "action": "invited",
+      "task": "dagarannu40@gmail.com",
+      "at": "2026-08-01T13:43:24.701Z"
+    },
+    {
+      "id": "a4439ff0-a2f2-40fc-959c-5c156d279730",
+      "actor": "Ayush",
+      "action": "invited",
+      "task": "dagarannu40@gmail.com",
+      "at": "2026-08-01T13:19:38.946Z"
+    },
+    {
+      "id": "f12f9b75-5f09-473b-8f3d-b1dd8751c47b",
+      "actor": "Annu",
+      "action": "joined the workspace via invite",
+      "task": "",
+      "at": "2026-08-01T13:11:49.629Z"
+    },
+    {
+      "id": "9be9db06-3de4-4127-a725-8dc577b464ce",
+      "actor": "Annu",
+      "action": "signed up and created a default workspace",
+      "task": "",
+      "at": "2026-08-01T13:11:42.703Z"
+    },
+    {
+      "id": "395f323a-f8dd-4734-ad34-b90bb51487eb",
+      "actor": "Ayush",
+      "action": "invited",
+      "task": "dagarannu40@gmail.com",
+      "at": "2026-08-01T13:09:33.351Z"
+    },
+    {
+      "id": "ffd07d90-e4e2-4ad4-80bc-83ae82a16782",
+      "actor": "Ayush",
+      "action": "signed up and created a default workspace",
+      "task": "",
+      "at": "2026-08-01T12:09:05.773Z"
+    },
+    {
+      "id": "9c58efd3-e997-4089-8096-8960dae39438",
+      "actor": "Test Member",
+      "action": "created",
+      "task": "Test Member's Task",
+      "at": "2026-07-31T16:11:10.366Z"
+    },
+    {
+      "id": "b52fc054-9729-4baa-bf46-b25c2f8bd048",
+      "actor": "Test Member",
+      "action": "joined the workspace via invite",
+      "task": "",
+      "at": "2026-07-31T16:09:56.353Z"
+    },
+    {
+      "id": "6e693a67-59fa-43b9-86c8-adde9f2ff796",
+      "actor": "Test Member",
+      "action": "signed up and created a default workspace",
+      "task": "",
+      "at": "2026-07-31T16:09:42.487Z"
+    },
+    {
+      "id": "590b60ae-6e27-453e-9477-cd2a431d7d95",
+      "actor": "Annu Dagar",
+      "action": "invited",
+      "task": "testmember@northstar.dev",
+      "at": "2026-07-31T16:08:54.965Z"
+    },
+    {
+      "id": "e2a92314-3881-448d-a7d5-bb54009b7ba9",
+      "actor": "Test Admin",
+      "action": "signed up and created a default workspace",
+      "task": "",
+      "at": "2026-07-31T15:47:08.392Z"
+    },
+    {
+      "id": "42e51ae1-50c5-4df8-80f7-e361fdab17a0",
+      "actor": "Annu Dagar",
+      "action": "sent a deadline reminder for",
+      "task": "e",
+      "at": "2026-07-31T15:36:40.196Z"
+    },
+    {
+      "id": "90d258cd-49d0-414f-b440-3706cccd2e9b",
+      "actor": "Test User",
+      "action": "signed up and created a default workspace",
+      "task": "",
+      "at": "2026-07-31T14:53:15.236Z"
+    },
+    {
+      "id": "01c25865-9b9b-48cf-9cd4-3839a198cf4a",
+      "actor": "Annu Dagar",
+      "action": "assigned Maya Chen as Viewer",
+      "task": "",
+      "at": "2026-07-31T14:41:52.560Z"
+    },
+    {
+      "id": "e31eabf2-e0ad-4512-8f49-797da744c476",
+      "actor": "Temp User",
+      "action": "updated their profile",
+      "task": "",
+      "at": "2026-07-31T14:39:14.724Z"
+    },
+    {
+      "id": "9362bd4a-9a83-42d7-92f0-1c6fbd56c83d",
+      "actor": "Temp User",
+      "action": "updated their profile",
+      "task": "",
+      "at": "2026-07-31T14:38:18.101Z"
+    },
+    {
+      "id": "0f1fef1a-0472-4358-9ab8-802723e05910",
+      "actor": "Temp User",
+      "action": "updated their profile",
+      "task": "",
+      "at": "2026-07-31T14:36:31.273Z"
+    },
+    {
+      "id": "f7e2f35e-3cbb-4cf3-b62d-cfda5d5f5f05",
+      "actor": "Temp User",
+      "action": "moved to in progress",
+      "task": "Test Live Sync",
+      "at": "2026-07-31T14:35:17.977Z"
+    },
+    {
+      "id": "dc2f693f-77d4-4adf-994f-fdb00be974e2",
+      "actor": "Temp User",
+      "action": "created",
+      "task": "Test Live Sync",
+      "at": "2026-07-31T14:34:57.044Z"
+    },
+    {
+      "id": "3d0c7e93-bfe3-462b-8112-b21c533dfbb3",
+      "actor": "Temp User",
+      "action": "signed up and created a default workspace",
+      "task": "",
+      "at": "2026-07-31T14:32:22.390Z"
+    },
+    {
+      "id": "f35c5baf-79fc-420c-8ecb-81066e5f5b40",
+      "actor": "Ayush Mishra",
+      "action": "assigned Ayush Mishra as Workspace member",
+      "task": "",
+      "at": "2026-07-31T14:25:23.758Z"
+    },
+    {
+      "id": "6e276df0-08be-49c2-acff-752a2f5fa420",
+      "actor": "Ayush Mishra",
+      "action": "assigned Annu Dagar as Workspace admin",
+      "task": "",
+      "at": "2026-07-31T14:25:20.775Z"
+    },
+    {
+      "id": "84ca4ddb-f2f4-4826-9c85-1d1a8a62b5ed",
+      "actor": "Annu Dagar",
+      "action": "assigned Annu Dagar as Workspace member",
+      "task": "",
+      "at": "2026-07-31T08:36:19.352Z"
+    },
+    {
+      "id": "411573e3-da15-4d97-b573-5ca941bde7ae",
+      "actor": "Annu Dagar",
+      "action": "assigned Ayush Mishra as Workspace admin",
+      "task": "",
+      "at": "2026-07-31T08:29:09.614Z"
+    },
+    {
+      "id": "6c2fce6a-c743-45dc-b7b4-47c6653d10ab",
+      "actor": "Annu Dagar",
+      "action": "assigned Maya Chen as Workspace admin",
+      "task": "",
+      "at": "2026-07-31T08:28:34.628Z"
+    },
+    {
+      "id": "0516706a-fba4-4eef-b5c9-e0903717b68b",
+      "actor": "Annu Dagar",
+      "action": "assigned Maya Chen as Viewer",
+      "task": "",
+      "at": "2026-07-31T08:27:38.143Z"
+    },
+    {
+      "id": "e179698e-6e31-4720-8dfc-c5bfe8c9515a",
+      "actor": "Annu Dagar",
+      "action": "created",
+      "task": "Test Notification",
+      "at": "2026-07-31T08:21:11.546Z"
+    },
+    {
+      "id": "07d398b2-7960-4017-9217-eedb05204259",
+      "actor": "Annu Dagar",
+      "action": "sent a deadline reminder for",
+      "task": "Design the onboarding flow",
+      "at": "2026-07-16T11:08:11.163Z"
+    },
+    {
+      "id": "af0c3686-6140-45db-9187-5e2ba4b8a3a0",
+      "actor": "Annu Dagar",
+      "action": "sent a deadline reminder for",
+      "task": "Design the onboarding flow",
+      "at": "2026-07-16T11:07:59.137Z"
+    },
+    {
+      "id": "b0a8e2ba-4b4e-4255-8cbe-5ccbe56cae2c",
+      "actor": "Annu Dagar",
+      "action": "sent a deadline reminder for",
+      "task": "Design the onboarding flow",
+      "at": "2026-07-16T11:07:34.121Z"
+    },
+    {
+      "id": "f79a3ddc-5c86-4e55-a425-72b1954b16c7",
+      "actor": "Annu Dagar",
+      "action": "sent a deadline reminder for",
+      "task": "Design the onboarding flow",
+      "at": "2026-07-16T11:06:38.305Z"
+    },
+    {
+      "id": "506cf9da-d16a-4dd0-917d-4c226ca18dcd",
+      "actor": "Annu Dagar",
+      "action": "sent a deadline reminder for",
+      "task": "Design the onboarding flow",
+      "at": "2026-07-16T11:06:28.882Z"
+    },
+    {
+      "id": "8c26c5a4-28d2-4046-a621-ac09a37d14c8",
+      "actor": "Annu Dagar",
+      "action": "updated",
+      "task": "e",
+      "at": "2026-07-16T11:03:18.645Z"
+    },
+    {
+      "id": "ff82bdc9-00e6-49ba-9cd9-5e0862f109b6",
+      "actor": "Annu Dagar",
+      "action": "created",
+      "task": "e",
+      "at": "2026-07-16T10:55:47.033Z"
+    },
+    {
+      "id": "ec1fafc4-b4ff-434b-9ec4-7417f0dcedbc",
+      "actor": "Annu Dagar",
+      "action": "sent a deadline reminder for",
+      "task": "Design the onboarding flow",
+      "at": "2026-07-16T10:52:45.447Z"
+    },
+    {
+      "id": "50b4bf0b-d6cd-4017-bf8c-9b29272698df",
+      "actor": "Annu Dagar",
+      "action": "moved to review",
+      "task": "Design the onboarding flow",
+      "at": "2026-07-16T10:52:40.181Z"
+    },
+    {
+      "id": "64593384-7b89-4016-b01f-6422026daf87",
+      "actor": "Annu Dagar",
+      "action": "moved to done",
+      "task": "Set up authentication endpoints",
+      "at": "2026-07-16T10:49:58.872Z"
+    },
+    {
+      "id": "140cd7f8-7e6b-4920-84f2-875bc322b060",
+      "actor": "Annu Dagar",
+      "action": "sent a deadline reminder for",
+      "task": "Set up authentication endpoints",
+      "at": "2026-07-16T10:49:55.026Z"
+    },
+    {
+      "id": "94f4ef66-8dfc-473a-a519-d385ef6e903d",
+      "actor": "Annu Dagar",
+      "action": "sent a deadline reminder for",
+      "task": "Set up authentication endpoints",
+      "at": "2026-07-16T10:49:08.239Z"
+    },
+    {
+      "id": "4b623e61-d3f2-4171-aae1-e5a852af968f",
+      "actor": "Annu Dagar",
+      "action": "moved to done",
+      "task": "Write launch announcement",
+      "at": "2026-07-16T10:22:57.066Z"
+    },
+    {
+      "id": "5a4aa5fa-fbbe-4a5a-a5b9-7c1ea424f110",
+      "actor": "Verification Tester",
+      "action": "signed up and created a default workspace",
+      "task": "",
+      "at": "2026-07-14T12:30:54.504Z"
+    },
+    {
+      "id": "3303f714-aa14-420d-9470-fbdd2a03be77",
+      "actor": "Browser Tester",
+      "action": "joined the workspace via invite",
+      "task": "",
+      "at": "2026-07-14T12:19:21.046Z"
+    },
+    {
+      "id": "63596150-6384-487b-a799-7ef9b8efdc7a",
+      "actor": "Annu Dagar",
+      "action": "invited",
+      "task": "browsertest@flowspace.dev",
+      "at": "2026-07-14T12:15:56.176Z"
+    },
+    {
+      "id": "d8a79782-9aaa-447d-ac48-5127b952e025",
+      "actor": "Browser Tester",
+      "action": "updated their profile",
+      "task": "",
+      "at": "2026-07-14T12:14:22.525Z"
+    },
+    {
+      "id": "55049cab-8471-4d8d-89f3-3932a77dc700",
+      "actor": "Browser Tester",
+      "action": "signed up and created a default workspace",
+      "task": "",
+      "at": "2026-07-14T12:13:17.197Z"
+    },
+    {
+      "id": "309b9f64-39f3-4bdb-a9f4-6e99415a9e55",
+      "actor": "Verification Tester",
+      "action": "signed up and created a default workspace",
+      "task": "",
+      "at": "2026-07-14T12:09:38.450Z"
+    },
+    {
+      "id": "e478b216-18f2-48d6-9c48-8e6337f936f7",
+      "actor": "Annu Dagar",
+      "action": "moved to done",
+      "task": "Design the onboarding flow",
+      "at": "2026-07-14T06:09:37.803Z"
+    },
+    {
+      "id": "8a065fed-bdbf-493f-a8cc-be9961203dc3",
+      "actor": "Annu Dagar",
+      "action": "created workspace",
+      "task": "New Workspace 2",
+      "at": "2026-07-14T06:07:48.185Z"
+    },
+    {
+      "id": "ce2cb977-d00f-44fc-b3a2-f953d21eef3d",
+      "actor": "Annu Dagar",
+      "action": "created workspace",
+      "task": "New Workspace Test",
+      "at": "2026-07-14T06:01:07.319Z"
+    },
+    {
+      "id": "3c136682-8569-4ff5-97f1-d625f52b82ed",
+      "actor": "Annu Dagar",
+      "action": "moved to in progress",
+      "task": "SSE Live Sync Task 2",
+      "at": "2026-07-14T05:52:49.048Z"
+    },
+    {
+      "id": "0f67d684-76fc-417f-b374-305260ac7712",
+      "actor": "Annu Dagar",
+      "action": "created",
+      "task": "SSE Live Sync Task 2",
+      "at": "2026-07-14T05:51:27.799Z"
+    },
+    {
+      "id": "61126297-882c-4fa8-859e-5baa5adbe495",
+      "actor": "Annu Dagar",
+      "action": "moved to done",
+      "task": "SSE Live Sync Task",
+      "at": "2026-07-14T05:46:09.452Z"
+    },
+    {
+      "id": "98a75ed4-8b22-4448-a30d-b52d2ee629d4",
+      "actor": "Annu Dagar",
+      "action": "created",
+      "task": "SSE Live Sync Task",
+      "at": "2026-07-14T05:45:42.196Z"
+    },
+    {
+      "id": "fd207257-4bbd-48f5-83b6-e477c8b8705c",
+      "actor": "Annu Dagar",
+      "action": "created workspace",
+      "task": "SSE Live Sync Test Workspace",
+      "at": "2026-07-14T05:43:26.617Z"
+    },
+    {
+      "id": "20dc65ed-83be-4dc9-add3-58507d5d7fd9",
+      "actor": "Ayush Mishra",
+      "action": "created the workspace",
+      "task": "",
+      "at": "2026-07-14T05:43:25.614Z"
+    },
+    {
+      "id": "66211a6d-bd45-4146-9a98-d74052918947",
+      "actor": "Annu Dagar",
+      "action": "completed",
+      "task": "Audit dashboard accessibility",
+      "at": "2026-07-14T05:43:25.614Z"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "0cf765be-8f6f-424b-8aff-415285ce02dd",
+      "text": "You were invited to join Ayush's Workspace as Workspace member.",
+      "read": true,
+      "at": "2026-08-01T13:43:24.701Z",
+      "targetEmail": "dagarannu40@gmail.com"
+    },
+    {
+      "id": "20d2ca7d-e5f7-42d6-82c6-b7c8cea3315b",
+      "text": "You were invited to join Ayush's Workspace as Workspace member.",
+      "read": true,
+      "at": "2026-08-01T13:19:38.946Z",
+      "targetEmail": "dagarannu40@gmail.com"
+    },
+    {
+      "id": "43fda677-7383-49b2-a6bf-9d8164e5c181",
+      "text": "You were invited to join Ayush's Workspace as Workspace member.",
+      "read": true,
+      "at": "2026-08-01T13:09:33.352Z",
+      "targetEmail": "dagarannu40@gmail.com"
+    },
+    {
+      "id": "2a1210f3-fcb6-4755-8dd6-942d2bc1320c",
+      "text": "New task: Test Member's Task",
+      "read": true,
+      "at": "2026-07-31T16:11:10.366Z",
+      "targetEmail": null
+    },
+    {
+      "id": "5d943da9-674f-4fb0-bba8-3d75e0e5d49d",
+      "text": "Invitation sent to testmember@northstar.dev.",
+      "read": true,
+      "at": "2026-07-31T16:08:54.965Z",
+      "targetEmail": "testmember@northstar.dev"
+    },
+    {
+      "id": "1bad42cc-b266-4834-94fe-2b2c62aa04af",
+      "text": "Deadline reminder sent to Ayush Mishra: “e” is due 2026-07-31.",
+      "read": true,
+      "at": "2026-07-31T15:36:40.196Z",
+      "targetEmail": "ayush@northstar.dev"
+    },
+    {
+      "id": "056abef4-b3c1-4c61-b283-78b118104c29",
+      "text": "Annu Dagar updated Maya Chen's role to Viewer.",
+      "read": true,
+      "at": "2026-07-31T14:41:52.561Z",
+      "targetEmail": "maya@northstar.dev"
+    },
+    {
+      "id": "cfe60c72-f19a-4cb1-a928-4986d45938cd",
+      "text": "New task: Test Live Sync",
+      "read": true,
+      "at": "2026-07-31T14:34:57.044Z",
+      "targetEmail": null
+    },
+    {
+      "id": "621c88dc-569f-49ed-977a-0d2bb229615e",
+      "text": "Ayush Mishra updated Ayush Mishra's role to Workspace member.",
+      "read": true,
+      "at": "2026-07-31T14:25:23.758Z",
+      "targetEmail": "ayush@northstar.dev"
+    },
+    {
+      "id": "115a5923-d32c-4966-8f84-3a7fd0c65b76",
+      "text": "Ayush Mishra updated Annu Dagar's role to Workspace admin.",
+      "read": true,
+      "at": "2026-07-31T14:25:20.775Z",
+      "targetEmail": "annu@northstar.dev"
+    },
+    {
+      "id": "0cb2c293-d29c-4e29-bda9-83d74a366d9e",
+      "text": "Annu Dagar updated Annu Dagar's role to Workspace member.",
+      "read": true,
+      "at": "2026-07-31T08:36:19.352Z",
+      "targetEmail": "annu@northstar.dev"
+    },
+    {
+      "id": "1b05120d-489f-4b31-bff3-f68be6c46621",
+      "text": "Annu Dagar updated Ayush Mishra's role to Workspace admin.",
+      "read": true,
+      "at": "2026-07-31T08:29:09.614Z"
+    },
+    {
+      "id": "72c9604e-b59c-4a37-b72d-f98027a875b3",
+      "text": "Annu Dagar updated Maya Chen's role to Workspace admin.",
+      "read": true,
+      "at": "2026-07-31T08:28:34.628Z"
+    },
+    {
+      "id": "9c24c05f-d7d5-48d0-b59d-3036b069d056",
+      "text": "Annu Dagar updated Maya Chen's role to Viewer.",
+      "read": true,
+      "at": "2026-07-31T08:27:38.143Z"
+    },
+    {
+      "id": "d5a01186-a044-468d-becb-9e32548ef0f9",
+      "text": "New task: Test Notification",
+      "read": true,
+      "at": "2026-07-31T08:21:11.546Z"
+    },
+    {
+      "id": "e89b5ee7-d3d0-46a8-9d28-15e1bb38262f",
+      "text": "Deadline reminder sent to Annu Dagar: “Design the onboarding flow” is due 2026-07-18.",
+      "read": true,
+      "at": "2026-07-16T11:08:11.163Z"
+    },
+    {
+      "id": "ecdd4a36-3b62-4424-bf30-55a8c2aa3d74",
+      "text": "Deadline reminder sent to Annu Dagar: “Design the onboarding flow” is due 2026-07-18.",
+      "read": true,
+      "at": "2026-07-16T11:07:59.137Z"
+    },
+    {
+      "id": "59906b90-51e9-4829-a093-70291ed89e15",
+      "text": "Deadline reminder sent to Annu Dagar: “Design the onboarding flow” is due 2026-07-18.",
+      "read": true,
+      "at": "2026-07-16T11:07:34.121Z"
+    },
+    {
+      "id": "e74ccb0a-257e-4776-915f-ad793c4c4aa3",
+      "text": "Deadline reminder sent to Annu Dagar: “Design the onboarding flow” is due 2026-07-18.",
+      "read": true,
+      "at": "2026-07-16T11:06:38.305Z"
+    },
+    {
+      "id": "814710e9-8fd0-4081-8b60-4451fdaf3872",
+      "text": "Deadline reminder sent to Annu Dagar: “Design the onboarding flow” is due 2026-07-18.",
+      "read": true,
+      "at": "2026-07-16T11:06:28.882Z"
+    },
+    {
+      "id": "ce4153f4-d412-4b94-bdca-24c9c584890d",
+      "text": "Ayush Mishra was assigned “e”.",
+      "read": true,
+      "at": "2026-07-16T11:03:18.645Z"
+    },
+    {
+      "id": "083e9585-effb-4db5-9c43-a717bb255b7f",
+      "text": "New task: e",
+      "read": true,
+      "at": "2026-07-16T10:55:47.033Z"
+    },
+    {
+      "id": "0d5a3ffe-3a6d-422e-a38c-c0b51397ac9f",
+      "text": "Deadline reminder sent to Annu Dagar: “Design the onboarding flow” is due 2026-07-18.",
+      "read": true,
+      "at": "2026-07-16T10:52:45.447Z"
+    },
+    {
+      "id": "b5df21db-a177-4d72-b633-542aea7fac58",
+      "text": "Annu Dagar was assigned “Design the onboarding flow”.",
+      "read": true,
+      "at": "2026-07-16T10:52:40.181Z"
+    },
+    {
+      "id": "e1a34133-acd1-4d1d-ba76-b5600e1de5bb",
+      "text": "Deadline reminder sent to Ayush Mishra: “Set up authentication endpoints” is due 2026-07-16.",
+      "read": true,
+      "at": "2026-07-16T10:49:55.026Z"
+    },
+    {
+      "id": "c836d605-f98d-4018-87ad-5a5fb58d204d",
+      "text": "Deadline reminder sent to Ayush Mishra: “Set up authentication endpoints” is due 2026-07-16.",
+      "read": true,
+      "at": "2026-07-16T10:49:08.239Z"
+    },
+    {
+      "id": "e2dfc216-7310-45d7-9a4c-3d95561526fc",
+      "text": "Invitation sent to browsertest@flowspace.dev.",
+      "read": true,
+      "at": "2026-07-14T12:15:56.176Z"
+    },
+    {
+      "id": "bf50b581-c679-41b9-8422-991f890c628a",
+      "text": "New task: SSE Live Sync Task 2",
+      "read": true,
+      "at": "2026-07-14T05:51:27.799Z"
+    },
+    {
+      "id": "dc3132c2-9410-4557-8403-2fbcaacfaf1b",
+      "text": "New task: SSE Live Sync Task",
+      "read": true,
+      "at": "2026-07-14T05:45:42.197Z"
+    },
+    {
+      "id": "f548a268-72b0-495a-9d43-4d9e323175d9",
+      "text": "Authentication endpoints are due in 2 days.",
+      "read": true,
+      "at": "2026-07-14T05:43:25.614Z"
+    }
+  ]
+}

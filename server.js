@@ -208,16 +208,9 @@ const server = http.createServer(async (req, res) => {
 
       const pendingUserInvites = receivedInvites.filter(i => i.status === 'Pending');
 
-      const callerRole = activeId ? getCallerRole(req, data, activeId) : 'Viewer';
-      let userNotifications = data.notifications || [];
-      if (callerRole !== 'Workspace admin') {
-        userNotifications = userNotifications.filter(n => 
-          !n.targetEmail || 
-          n.targetEmail.toLowerCase() === user.email.toLowerCase() ||
-          n.text.toLowerCase().includes(user.name.toLowerCase()) ||
-          n.text.toLowerCase().includes(user.email.toLowerCase())
-        );
-      }
+      const userNotifications = (data.notifications || []).filter(n => 
+        !n.targetEmail || n.targetEmail.toLowerCase() === user.email.toLowerCase()
+      );
 
       return json(res, 200, {
         workspace: activeWorkspace,

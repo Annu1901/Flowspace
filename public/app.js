@@ -171,7 +171,12 @@ async function fetchSupabaseState(user) {
         workspaceActivity = (actData || []).map(a => ({ ...a, workspaceId: a.workspace_id || a.workspaceId }));
 
         const { data: notifData } = await sb.from('notifications').select('*').eq('workspace_id', activeId).order('at', { ascending: false });
-        workspaceNotifications = (notifData || []).map(n => ({ ...n, workspaceId: n.workspace_id || n.workspaceId }));
+        workspaceNotifications = (notifData || [])
+          .filter(n => {
+            const target = (n.target_email || n.targetEmail || '').toLowerCase();
+            return !target || target === userEmail;
+          })
+          .map(n => ({ ...n, workspaceId: n.workspace_id || n.workspaceId, targetEmail: n.target_email || n.targetEmail }));
       } catch (e) {}
     }
 
@@ -397,21 +402,32 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       } catch (e) {}
     }
 
-    const notifText = `${user ? user.name : 'A member'} created task "${task.title}".`;
-    const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, read: false, at: new Date().toISOString() };
-    if (!db.notifications) db.notifications = [];
-    db.notifications.unshift(notifObj);
-
     // Log Activity
     const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
     const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'created task', task: task.title, at: new Date().toISOString() };
     if (!db.activity) db.activity = [];
     db.activity.unshift(actEntry);
+
+    // Target notification ONLY if assigned to a specific member other than caller
+    if (task.assigneeId) {
+      const assigneeMem = db.members.find(m => m.id === task.assigneeId);
+      if (assigneeMem && assigneeMem.email && assigneeMem.email.toLowerCase() !== (user?.email || '').toLowerCase()) {
+        const notifText = `You were assigned task "${task.title}" by ${user ? user.name : 'a teammate'}.`;
+        const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, targetEmail: assigneeMem.email.toLowerCase(), read: false, at: new Date().toISOString() };
+        if (!db.notifications) db.notifications = [];
+        db.notifications.unshift(notifObj);
+        if (sb) {
+          try {
+            await sb.from('notifications').insert([{ workspace_id: activeWsId, text: notifText, target_email: assigneeMem.email.toLowerCase(), read: false }]);
+          } catch (e) {}
+        }
+      }
+    }
+
     saveStaticDb(db);
 
     if (sb) {
       try {
-        await sb.from('notifications').insert([{ workspace_id: activeWsId, text: notifText, read: false }]);
         await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'created task', task: task.title }]);
       } catch (e) {}
     }
@@ -427,23 +443,33 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       Object.assign(t, body);
       
       const actionText = body.status === 'done' ? 'completed task' : (body.status ? `moved task to ${body.status}` : 'updated task');
-      const notifText = body.status === 'done'
-        ? `🎉 ${user ? user.name : 'A member'} marked task "${t.title}" as completed!`
-        : `${user ? user.name : 'A member'} updated task "${t.title}".`;
-        
-      const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, read: false, at: new Date().toISOString() };
-      if (!db.notifications) db.notifications = [];
-      db.notifications.unshift(notifObj);
-
       const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
       const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: actionText, task: t.title, at: new Date().toISOString() };
       if (!db.activity) db.activity = [];
       db.activity.unshift(actEntry);
 
+      // Target notification ONLY if task is assigned to a member other than caller
+      const targetAssigneeId = body.assigneeId || t.assigneeId;
+      if (targetAssigneeId) {
+        const assigneeMem = db.members.find(m => m.id === targetAssigneeId);
+        if (assigneeMem && assigneeMem.email && assigneeMem.email.toLowerCase() !== (user?.email || '').toLowerCase()) {
+          const notifText = body.status === 'done'
+            ? `🎉 Task "${t.title}" was marked as completed by ${user ? user.name : 'a teammate'}!`
+            : `Task "${t.title}" was updated by ${user ? user.name : 'a teammate'}.`;
+          const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, targetEmail: assigneeMem.email.toLowerCase(), read: false, at: new Date().toISOString() };
+          if (!db.notifications) db.notifications = [];
+          db.notifications.unshift(notifObj);
+          if (sb) {
+            try {
+              await sb.from('notifications').insert([{ workspace_id: activeWsId, text: notifText, target_email: assigneeMem.email.toLowerCase(), read: false }]);
+            } catch (e) {}
+          }
+        }
+      }
+
       saveStaticDb(db);
       if (sb) {
         try {
-          await sb.from('notifications').insert([{ workspace_id: activeWsId, text: notifText, read: false }]);
           await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: actionText, task: t.title }]);
         } catch (e) {}
       }
@@ -613,14 +639,19 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
   }
 
   if (path.includes('/api/notifications/read')) {
+    const userEmail = user ? user.email.toLowerCase() : '';
     if (db.notifications) {
-      db.notifications.forEach(n => n.read = true);
+      db.notifications.forEach(n => {
+        if (!n.targetEmail || n.targetEmail.toLowerCase() === userEmail) {
+          n.read = true;
+        }
+      });
       saveStaticDb(db);
     }
-    if (sb) {
+    if (sb && userEmail) {
       try {
         const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
-        await sb.from('notifications').update({ read: true }).eq('workspace_id', activeWsId);
+        await sb.from('notifications').update({ read: true }).eq('workspace_id', activeWsId).eq('target_email', userEmail);
       } catch (e) {}
     }
     return { ok: true };

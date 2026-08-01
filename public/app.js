@@ -984,11 +984,17 @@ function renderTeam() {
   $('#team-grid').innerHTML = state.members.map(m => {
     const roleVal = m.role || 'Workspace member';
     const isAdminRole = roleVal === 'Workspace admin';
+    const isSelf = user && m.email.toLowerCase() === user.email.toLowerCase();
+
     const roleControl = isAdmin ? `
       <select class="role-select" data-id="${m.id}" title="Assign member role">
         ${roles.map(r => `<option value="${r}" ${roleVal === r ? 'selected' : ''}>${r}</option>`).join('')}
       </select>
     ` : `<small class="member-role-badge ${isAdminRole ? 'admin' : ''}">${esc(roleVal)}</small>`;
+
+    const removeBtn = (isAdmin && !isSelf) ? `
+      <button class="secondary remove-member-btn" data-id="${m.id}" data-name="${esc(m.name)}" style="margin-top:10px;padding:5px 12px;font-size:12px;color:#ef4444;border-color:rgba(239,68,68,0.3)">Remove member</button>
+    ` : '';
 
     return `
       <article class="member-card">
@@ -996,6 +1002,7 @@ function renderTeam() {
         <h3>${esc(m.name)}</h3>
         <p>${esc(m.email)}</p>
         ${roleControl}
+        ${removeBtn}
       </article>
     `;
   }).join('');
@@ -1014,6 +1021,20 @@ function renderTeam() {
         await refresh();
       } catch (err) {
         toast(err.message || 'Failed to update role');
+      }
+    };
+  });
+
+  $$('.remove-member-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (confirm(`Are you sure you want to remove ${btn.dataset.name} from this workspace?`)) {
+        try {
+          await api(`/api/members/${btn.dataset.id}`, { method: 'DELETE' });
+          toast(`Removed ${btn.dataset.name} from workspace`);
+          await refresh();
+        } catch (err) {
+          toast(err.message || 'Failed to remove member');
+        }
       }
     };
   });
@@ -1721,6 +1742,16 @@ function invite() {
     if (!validateEmail(payload.email)) {
       return toast('Please enter a valid email address.');
     }
+    const targetEmail = payload.email.trim().toLowerCase();
+    
+    if (state.members && state.members.some(m => m.email.toLowerCase() === targetEmail)) {
+      return toast('This user is already a member of this workspace!');
+    }
+    
+    if (state.invites && state.invites.some(i => i.email.toLowerCase() === targetEmail && i.status === 'Pending')) {
+      return toast('An invitation has already been sent to this email address!');
+    }
+
     try {
       await api('/api/invites', { method: 'POST', body: JSON.stringify(payload) });
       await refresh();
@@ -2026,6 +2057,23 @@ async function init() {
     toggleAuthShell(true);
     await refresh();
     connectLive();
+    
+    // Live auto-refresh polling every 3 seconds for seamless multi-device sync
+    setInterval(async () => {
+      const u = localStorage.getItem('flowspace_user');
+      if (u && !document.hidden && !$('#modal-backdrop').classList.contains('show') && !$('#auth-backdrop').classList.contains('show')) {
+        try {
+          const fresh = await api('/api/state');
+          if (JSON.stringify(fresh.members) !== JSON.stringify(state.members) ||
+              JSON.stringify(fresh.invites) !== JSON.stringify(state.invites) ||
+              JSON.stringify(fresh.tasks) !== JSON.stringify(state.tasks) ||
+              JSON.stringify(fresh.receivedInvites) !== JSON.stringify(state.receivedInvites)) {
+            state = fresh;
+            render();
+          }
+        } catch (e) {}
+      }
+    }, 3000);
     // Entrance animations for authenticated view
     gsap.fromTo('.sidebar', 
       { x: -270 },

@@ -386,6 +386,20 @@ const server = http.createServer(async (req, res) => {
       return json(res, 400, { error: 'Role is required' });
     }
 
+    if (req.method === 'DELETE' && parts[0] === 'api' && parts[1] === 'members' && parts[2]) {
+      if (getCallerRole(req, data) !== 'Workspace admin') return json(res, 403, { error: 'Only workspace admins can remove members' });
+      const memberId = parts[2];
+      const member = data.members.find(m => m.id === memberId);
+      if (!member) return json(res, 404, { error: 'Member not found' });
+      if (member.email.toLowerCase() === user.email.toLowerCase()) {
+        return json(res, 400, { error: 'You cannot remove yourself from the workspace' });
+      }
+      data.members = data.members.filter(m => m.id !== memberId);
+      log(data, user.name, `removed ${member.name} from workspace`);
+      save(data);
+      return json(res, 200, { ok: true });
+    }
+
     // 5.5 Projects API
     if (req.method === 'GET' && url.pathname === '/api/projects') {
       const userRecord = data.users.find(u => u.id === user.id);

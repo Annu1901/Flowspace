@@ -163,7 +163,19 @@ async function fetchSupabaseState(user) {
       }
     }
 
-    // 5. Fetch Received Invites across all workspaces for this email
+    // 5. Fetch Activity & Notifications for active workspace
+    let workspaceActivity = [], workspaceNotifications = [];
+    if (activeId) {
+      try {
+        const { data: actData } = await sb.from('activity').select('*').eq('workspace_id', activeId).order('at', { ascending: false });
+        workspaceActivity = (actData || []).map(a => ({ ...a, workspaceId: a.workspace_id || a.workspaceId }));
+
+        const { data: notifData } = await sb.from('notifications').select('*').eq('workspace_id', activeId).order('at', { ascending: false });
+        workspaceNotifications = (notifData || []).map(n => ({ ...n, workspaceId: n.workspace_id || n.workspaceId }));
+      } catch (e) {}
+    }
+
+    // 6. Fetch Received Invites across all workspaces for this email
     const { data: recInvs } = await sb.from('invites').select('*').eq('email', userEmail);
     let receivedInvites = [];
     if (recInvs && recInvs.length > 0) {
@@ -187,8 +199,8 @@ async function fetchSupabaseState(user) {
       members: workspaceMembers,
       invites: workspaceInvites,
       tasks: workspaceTasks,
-      activity: [],
-      notifications: [],
+      activity: workspaceActivity,
+      notifications: workspaceNotifications,
       pendingInvites: pendingUserInvites,
       receivedInvites: receivedInvites
     };
@@ -389,10 +401,18 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, read: false, at: new Date().toISOString() };
     if (!db.notifications) db.notifications = [];
     db.notifications.unshift(notifObj);
+
+    // Log Activity
+    const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
+    const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'created task', task: task.title, at: new Date().toISOString() };
+    if (!db.activity) db.activity = [];
+    db.activity.unshift(actEntry);
     saveStaticDb(db);
+
     if (sb) {
       try {
         await sb.from('notifications').insert([{ workspace_id: activeWsId, text: notifText, read: false }]);
+        await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'created task', task: task.title }]);
       } catch (e) {}
     }
 
@@ -405,8 +425,8 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     const t = db.tasks.find(x => x.id === taskId);
     if (t) {
       Object.assign(t, body);
-      saveStaticDb(db);
       
+      const actionText = body.status === 'done' ? 'completed task' : (body.status ? `moved task to ${body.status}` : 'updated task');
       const notifText = body.status === 'done'
         ? `🎉 ${user ? user.name : 'A member'} marked task "${t.title}" as completed!`
         : `${user ? user.name : 'A member'} updated task "${t.title}".`;
@@ -414,10 +434,17 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, read: false, at: new Date().toISOString() };
       if (!db.notifications) db.notifications = [];
       db.notifications.unshift(notifObj);
+
+      const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
+      const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: actionText, task: t.title, at: new Date().toISOString() };
+      if (!db.activity) db.activity = [];
+      db.activity.unshift(actEntry);
+
       saveStaticDb(db);
       if (sb) {
         try {
           await sb.from('notifications').insert([{ workspace_id: activeWsId, text: notifText, read: false }]);
+          await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: actionText, task: t.title }]);
         } catch (e) {}
       }
     }
@@ -436,8 +463,23 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
 
   if (method === 'DELETE' && path.startsWith('/api/tasks/')) {
     const taskId = path.split('/')[3];
+    const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+    const t = db.tasks.find(x => x.id === taskId);
     db.tasks = db.tasks.filter(x => x.id !== taskId);
+
+    if (t) {
+      const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
+      const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'deleted task', task: t.title, at: new Date().toISOString() };
+      if (!db.activity) db.activity = [];
+      db.activity.unshift(actEntry);
+      if (sb) {
+        try {
+          await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'deleted task', task: t.title }]);
+        } catch (e) {}
+      }
+    }
     saveStaticDb(db);
+
     if (sb) {
       try {
         await sb.from('tasks').delete().eq('id', taskId);
@@ -2268,7 +2310,7 @@ async function init() {
     await refresh();
     connectLive();
     
-    // Live auto-refresh polling every 3 seconds for seamless multi-device sync
+    // Live auto-refresh polling every 2.5 seconds for seamless real-time multi-device sync
     setInterval(async () => {
       const u = localStorage.getItem('flowspace_user');
       if (u && !document.hidden && !$('#modal-backdrop').classList.contains('show') && !$('#auth-backdrop').classList.contains('show')) {
@@ -2277,13 +2319,15 @@ async function init() {
           if (JSON.stringify(fresh.members) !== JSON.stringify(state.members) ||
               JSON.stringify(fresh.invites) !== JSON.stringify(state.invites) ||
               JSON.stringify(fresh.tasks) !== JSON.stringify(state.tasks) ||
+              JSON.stringify(fresh.activity) !== JSON.stringify(state.activity) ||
+              JSON.stringify(fresh.notifications) !== JSON.stringify(state.notifications) ||
               JSON.stringify(fresh.receivedInvites) !== JSON.stringify(state.receivedInvites)) {
             state = fresh;
             render();
           }
         } catch (e) {}
       }
-    }, 3000);
+    }, 2500);
     // Entrance animations for authenticated view
     gsap.fromTo('.sidebar', 
       { x: -270 },

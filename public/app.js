@@ -2079,33 +2079,6 @@ function openTask(id) {
   const canModify = canUserModifyTask(t);
   const isNear = t.dueDate && t.status !== 'done' && new Date(t.dueDate + 'T23:59:59') - Date.now() < 7 * 864e5;
 
-  const renderAttachmentItem = (a) => {
-    const isImg = a.type && a.type.startsWith('image/');
-    const preview = isImg && a.data ? `<img src="${a.data}" alt="${esc(a.name)}" style="max-height:100px;border-radius:6px;margin-top:8px;display:block;object-fit:cover">` : '';
-    return `
-      <div class="attachment-item" style="padding:10px 14px;background:var(--violet);border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:16px">📎</span>
-            <div>
-              <b style="font-size:13px;color:var(--ink);display:block">${esc(a.name)}</b>
-              <small style="font-size:11px;color:var(--muted)">${Math.ceil((a.size || 0)/1024)} KB</small>
-            </div>
-          </div>
-          ${a.data ? `<a href="${a.data}" target="_blank" download="${esc(a.name)}" class="primary" style="font-size:12px;padding:6px 12px;text-decoration:none;border-radius:6px;display:inline-flex;align-items:center;gap:4px">📥 Download / View</a>` : ''}
-        </div>
-        ${preview}
-      </div>
-    `;
-  };
-
-  const attachmentsMarkup = `
-    <div class="attachments-list" style="margin-bottom:12px">
-      ${(t.attachments || []).map(renderAttachmentItem).join('') || '<p class="empty" style="color:var(--muted);font-size:13px">No files attached yet.</p>'}
-    </div>
-    ${!isViewer ? '<label class="secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:13px;background:var(--violet);border:1px solid var(--line)">📤 Upload File<input type="file" id="file-input" style="display:none"></label>' : ''}
-  `;
-
   const commentFormMarkup = isViewer
     ? ''
     : `<form id="comment-form" class="field"><textarea required name="text" placeholder="Write a comment…"></textarea><button class="primary" style="align-self:flex-end">Add comment</button></form>`;
@@ -2153,10 +2126,6 @@ function openTask(id) {
         ${isViewer ? '<div style="margin-top:10px"><span class="tag" style="background:rgba(148,163,184,0.15);color:var(--muted)">Read-only Viewer Mode</span></div>' : (!canModify && role === 'Workspace member' ? `<div style="margin-top:10px"><span class="tag" style="background:rgba(245,158,11,0.12);color:#b45309">Assigned to ${m ? esc(m.name) : 'another member'} (Read-only view)</span></div>` : '')}
       </div>
       ${isNear ? '<p style="font-size:12px;color:#d15c32;margin-top:14px">This deadline is near.</p>' : ''}
-      <div class="detail-section">
-        <h3>Attachments</h3>
-        ${attachmentsMarkup}
-      </div>
       <div class="detail-section">
         <h3>Comments (${t.comments.length})</h3>
         <div>${t.comments.map(c => `<div class="comment"><b>${esc(c.author)}</b><p>${esc(c.text)}</p></div>`).join('') || '<p class="empty">Start the conversation.</p>'}</div>
@@ -2212,35 +2181,7 @@ function openTask(id) {
       openTask(id);
       toast('Comment added');
     };
-    if ($('#file-input')) $('#file-input').onchange = e => uploadFile(id, e.target.files[0]);
   }
-}
-
-async function uploadFile(id, f) {
-  if (!f) return;
-  if (f.size > 5e6) return toast('Please choose a file under 5 MB');
-  const r = new FileReader();
-  r.onload = async () => {
-    try {
-      const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
-      await api(`/api/tasks/${id}/attachments`, {
-        method: 'POST',
-        body: JSON.stringify({
-          name: f.name,
-          size: f.size,
-          type: f.type,
-          data: r.result,
-          uploader: user ? user.name : 'Member'
-        })
-      });
-      await refresh();
-      openTask(id);
-      toast('Attachment uploaded & saved to Supabase!');
-    } catch (e) {
-      toast(e.message || 'Failed to upload attachment');
-    }
-  };
-  r.readAsDataURL(f);
 }
 
 function invite() {

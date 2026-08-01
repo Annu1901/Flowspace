@@ -1,12 +1,6 @@
 [build]
   publish = "public"
-  functions = "netlify/functions"
-  command = "echo 'Build complete'"
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200
+  command = "echo 'Static build complete'"
 
 [[redirects]]
   from = "/*"

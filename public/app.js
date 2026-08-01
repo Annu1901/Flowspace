@@ -2655,9 +2655,29 @@ async function init() {
   handlePasswordResetToken();
 
   // Auth button wiring
-  $('#landing-login-btn').onclick = showLogin;
-  $('#landing-signup-btn').onclick = showSignup;
-  $('#hero-get-started-btn').onclick = showSignup;
+  if ($('#landing-login-btn')) $('#landing-login-btn').onclick = showLogin;
+  if ($('#landing-signup-btn')) $('#landing-signup-btn').onclick = showSignup;
+  if ($('#hero-get-started-btn')) $('#hero-get-started-btn').onclick = showSignup;
+
+  // Global delegated click handling for Landing page Login & Signup buttons
+  document.addEventListener('click', e => {
+    if (e.target.closest('#landing-login-btn')) {
+      e.preventDefault();
+      showLogin();
+    }
+    if (e.target.closest('#landing-signup-btn, #hero-get-started-btn')) {
+      e.preventDefault();
+      showSignup();
+    }
+    if (e.target.closest('#goto-signup')) {
+      e.preventDefault();
+      showSignup();
+    }
+    if (e.target.closest('#goto-login')) {
+      e.preventDefault();
+      showLogin();
+    }
+  });
 
   // Sidebar controls
   $$('.nav').forEach(n => n.onclick = () => setView(n.dataset.view));

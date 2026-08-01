@@ -490,7 +490,8 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       }
 
       if (assigneeMem && assigneeMem.email && assigneeMem.email.toLowerCase() !== (user?.email || '').toLowerCase()) {
-        const notifText = `You were assigned task "${task.title}" by ${user ? user.name : 'a teammate'}.`;
+        const assignerName = user ? (user.name || user.email.split('@')[0]) : 'A teammate';
+        const notifText = `${assignerName} assigned you the task "${task.title}".`;
         const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, targetEmail: assigneeMem.email.toLowerCase(), read: false, at: new Date().toISOString() };
         if (!db.notifications) db.notifications = [];
         db.notifications.unshift(notifObj);
@@ -995,6 +996,43 @@ function toast(t) {
       onComplete: () => x.classList.remove('show') 
     });
   }, 2600);
+}
+
+function getCurrentRole() {
+  const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
+  if (!user) return 'Viewer';
+  const m = (state.members || []).find(x => x.email.toLowerCase() === user.email.toLowerCase());
+  return m?.role || 'Workspace member';
+}
+
+function canUserModifyTask(t) {
+  if (!t) return false;
+  const role = getCurrentRole();
+  if (role === 'Workspace admin') return true;
+  if (role === 'Viewer') return false;
+
+  const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
+  if (!user) return false;
+  const userEmail = (user.email || '').toLowerCase();
+
+  // 1. Task creator can ALWAYS modify their created task
+  if (t.createdBy && t.createdBy.toLowerCase() === userEmail) {
+    return true;
+  }
+
+  // 2. Assignee can modify tasks assigned to them
+  const currentMember = (state.members || []).find(x => x.email.toLowerCase() === userEmail);
+  if (currentMember && t.assigneeId && (t.assigneeId === currentMember.id || t.assigneeId === user.id)) {
+    return true;
+  }
+
+  // 3. Unassigned tasks or legacy tasks can be modified by any Workspace member
+  if (!t.assigneeId || !t.createdBy) {
+    return true;
+  }
+
+  // 4. All Workspace Members can edit tasks in their team workspace
+  return true;
 }
 
 function toggleAuthShell(isLoggedIn) {

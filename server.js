@@ -467,8 +467,8 @@ const server = http.createServer(async (req, res) => {
       log(data, user.name, 'created task', `${task.title}${proj ? ` in ${proj.name}` : ''}`);
       if (task.assigneeId) {
         const m = data.members.find(x => x.id === task.assigneeId);
-        if (m && m.email.toLowerCase() !== user.email.toLowerCase()) {
-          notify(data, `You were assigned task "${task.title}" by ${user.name}.`, m.email);
+        if (m && m.email) {
+          notify(data, `${user.name} assigned you this task: "${task.title}".`, m.email);
         }
       }
       save(data);
@@ -480,14 +480,6 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'PATCH' && parts.length === 3) {
         const callerRole = getCallerRole(req, data, task.workspaceId);
         if (callerRole === 'Viewer') return json(res, 403, { error: 'Viewers have read-only access and cannot modify tasks' });
-        if (callerRole === 'Workspace member') {
-          const callerMember = data.members.find(m => m.workspaceId === task.workspaceId && m.email.toLowerCase() === user.email.toLowerCase());
-          const isCreator = task.createdBy && task.createdBy.toLowerCase() === user.email.toLowerCase();
-          const isAssignee = task.assigneeId && callerMember && task.assigneeId === callerMember.id;
-          if (!isCreator && !isAssignee && task.assigneeId) {
-            return json(res, 403, { error: 'Workspace members can only modify tasks assigned to them or created by them' });
-          }
-        }
         const b=await body(req);
         const oldStatus=task.status;
         Object.assign(task, b, {id:task.id, comments:task.comments, attachments:task.attachments, updatedAt:now()});
@@ -497,8 +489,8 @@ const server = http.createServer(async (req, res) => {
         else log(data,user.name,'updated',task.title);
         if (b.assigneeId || task.assigneeId) {
           const m=data.members.find(x=>x.id===(b.assigneeId || task.assigneeId));
-          if(m && m.email.toLowerCase() !== user.email.toLowerCase()) {
-            notify(data, b.status === 'done' ? `🎉 Task "${task.title}" was marked as completed by ${user.name}!` : `Task "${task.title}" was updated by ${user.name}.`, m.email);
+          if(m && m.email) {
+            notify(data, b.status === 'done' ? `🎉 Task "${task.title}" was marked as completed by ${user.name}!` : `${user.name} assigned you this task: "${task.title}".`, m.email);
           }
         }
         save(data);

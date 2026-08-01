@@ -35,11 +35,7 @@ function getSupabase() {
 }
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
-const statuses = [
-  ['todo', 'To Do', '#94a3b8'],
-  ['progress', 'In Progress', '#0ea5e9'],
-  ['done', 'Completed', '#10b981']
-];
+const statuses = [['todo', 'To do', '#9aa4b7'], ['progress', 'In progress', '#7553ed'], ['review', 'In review', '#ef9d27'], ['done', 'Done', '#35a274']];
 
 function getStaticDb() {
   let db = JSON.parse(localStorage.getItem('flowspace_static_db') || 'null');
@@ -142,7 +138,6 @@ async function fetchSupabaseState(user) {
       const { data: tsks } = await sb.from('tasks').select('*').eq('workspace_id', activeId);
       workspaceTasks = (tsks || []).map(t => ({
         ...t,
-        status: normalizeStatus(t.status),
         workspaceId: t.workspace_id || t.workspaceId,
         projectId: t.project_id || t.projectId,
         assigneeId: t.assignee_id || t.assigneeId,
@@ -287,12 +282,6 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
 
   // 2. Fetch State
   if (method === 'GET' && path === '/api/state') {
-    if (sb) {
-      try {
-        const supaState = await fetchSupabaseState(user);
-        if (supaState) return supaState;
-      } catch (e) {}
-    }
     if (!user) throw new Error('Unauthorized');
 
     // Attempt Live Supabase PostgreSQL fetch first!
@@ -489,7 +478,7 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     if (!db.activity) db.activity = [];
     db.activity.unshift(actEntry);
 
-    // Target notification ONLY if assigned to a specific member other than caller
+    // Target notification whenever assigned to a member
     if (task.assigneeId) {
       const mems = (typeof state !== 'undefined' && state.members && state.members.length > 0) ? state.members : db.members;
       let assigneeMem = mems.find(m => m.id === task.assigneeId);
@@ -500,9 +489,9 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
         } catch (e) {}
       }
 
-      if (assigneeMem && assigneeMem.email && assigneeMem.email.toLowerCase() !== (user?.email || '').toLowerCase()) {
-        const assignerName = user ? (user.name || user.email.split('@')[0]) : 'A teammate';
-        const notifText = `${assignerName} assigned you the task "${task.title}".`;
+      if (assigneeMem && assigneeMem.email) {
+        const callerName = user ? (user.name || user.email.split('@')[0]) : 'A teammate';
+        const notifText = `${callerName} assigned you this task: "${task.title}".`;
         const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, targetEmail: assigneeMem.email.toLowerCase(), read: false, at: new Date().toISOString() };
         if (!db.notifications) db.notifications = [];
         db.notifications.unshift(notifObj);
@@ -538,7 +527,7 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       if (!db.activity) db.activity = [];
       db.activity.unshift(actEntry);
 
-      // Target notification ONLY if task is assigned to a member other than caller
+      // Target notification whenever task is assigned or updated
       const targetAssigneeId = body.assigneeId || t.assigneeId;
       if (targetAssigneeId) {
         const mems = (typeof state !== 'undefined' && state.members && state.members.length > 0) ? state.members : db.members;
@@ -550,10 +539,11 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
           } catch (e) {}
         }
 
-        if (assigneeMem && assigneeMem.email && assigneeMem.email.toLowerCase() !== (user?.email || '').toLowerCase()) {
+        if (assigneeMem && assigneeMem.email) {
+          const callerName = user ? (user.name || user.email.split('@')[0]) : 'A teammate';
           const notifText = body.status === 'done'
-            ? `🎉 Task "${t.title}" was marked as completed by ${user ? user.name : 'a teammate'}!`
-            : `Task "${t.title}" was updated by ${user ? user.name : 'a teammate'}.`;
+            ? `🎉 Task "${t.title}" was marked as completed by ${callerName}!`
+            : `${callerName} assigned you this task: "${t.title}".`;
           const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, targetEmail: assigneeMem.email.toLowerCase(), read: false, at: new Date().toISOString() };
           if (!db.notifications) db.notifications = [];
           db.notifications.unshift(notifObj);
@@ -944,8 +934,6 @@ function getActiveProject() {
   return projects[0];
 }
 
-const normalizeStatus = s => (s === 'in_progress' || s === 'in progress' ? 'progress' : (s || 'todo'));
-
 const esc = s => String(s || '').replace(/[&<>'"]/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[x]));
 const member = id => state.members.find(m => m.id === id);
 const date = v => v ? new Date(v + 'T12:00:00').toLocaleDateString('en', { month: 'short', day: 'numeric' }) : 'No due date';
@@ -1009,43 +997,6 @@ function toast(t) {
       onComplete: () => x.classList.remove('show') 
     });
   }, 2600);
-}
-
-function getCurrentRole() {
-  const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
-  if (!user) return 'Viewer';
-  const m = (state.members || []).find(x => x.email.toLowerCase() === user.email.toLowerCase());
-  return m?.role || 'Workspace member';
-}
-
-function canUserModifyTask(t) {
-  if (!t) return false;
-  const role = getCurrentRole();
-  if (role === 'Workspace admin') return true;
-  if (role === 'Viewer') return false;
-
-  const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
-  if (!user) return false;
-  const userEmail = (user.email || '').toLowerCase();
-
-  // 1. Task creator can ALWAYS modify their created task
-  if (t.createdBy && t.createdBy.toLowerCase() === userEmail) {
-    return true;
-  }
-
-  // 2. Assignee can modify tasks assigned to them
-  const currentMember = (state.members || []).find(x => x.email.toLowerCase() === userEmail);
-  if (currentMember && t.assigneeId && (t.assigneeId === currentMember.id || t.assigneeId === user.id)) {
-    return true;
-  }
-
-  // 3. Unassigned tasks or legacy tasks can be modified by any Workspace member
-  if (!t.assigneeId || !t.createdBy) {
-    return true;
-  }
-
-  // 4. All Workspace Members can edit tasks in their team workspace
-  return true;
 }
 
 function toggleAuthShell(isLoggedIn) {
@@ -1124,30 +1075,8 @@ function getCurrentRole() {
 function canUserModifyTask(t) {
   if (!t) return false;
   const role = getCurrentRole();
-  if (role === 'Workspace admin') return true;
   if (role === 'Viewer') return false;
-  
-  const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
-  if (!user) return false;
-
-  // 1. Task creator can ALWAYS modify their created task
-  if (t.createdBy && t.createdBy.toLowerCase() === user.email.toLowerCase()) {
-    return true;
-  }
-
-  const currentMember = state.members.find(x => x.email.toLowerCase() === user.email.toLowerCase());
-  
-  // 2. Assignee can modify the task assigned to them
-  if (currentMember && t.assigneeId && (t.assigneeId === currentMember.id || t.assigneeId === user.id)) {
-    return true;
-  }
-
-  // 3. Unassigned tasks can be modified by any Workspace member
-  if (!t.assigneeId) {
-    return true;
-  }
-
-  return false;
+  return true;
 }
 
 function render() {
@@ -2653,29 +2582,9 @@ async function init() {
   handlePasswordResetToken();
 
   // Auth button wiring
-  if ($('#landing-login-btn')) $('#landing-login-btn').onclick = showLogin;
-  if ($('#landing-signup-btn')) $('#landing-signup-btn').onclick = showSignup;
-  if ($('#hero-get-started-btn')) $('#hero-get-started-btn').onclick = showSignup;
-
-  // Global delegated click handling for Landing page Login & Signup buttons
-  document.addEventListener('click', e => {
-    if (e.target.closest('#landing-login-btn')) {
-      e.preventDefault();
-      showLogin();
-    }
-    if (e.target.closest('#landing-signup-btn, #hero-get-started-btn')) {
-      e.preventDefault();
-      showSignup();
-    }
-    if (e.target.closest('#goto-signup')) {
-      e.preventDefault();
-      showSignup();
-    }
-    if (e.target.closest('#goto-login')) {
-      e.preventDefault();
-      showLogin();
-    }
-  });
+  $('#landing-login-btn').onclick = showLogin;
+  $('#landing-signup-btn').onclick = showSignup;
+  $('#hero-get-started-btn').onclick = showSignup;
 
   // Sidebar controls
   $$('.nav').forEach(n => n.onclick = () => setView(n.dataset.view));
@@ -2888,5 +2797,6 @@ async function init() {
 }
 
 init().catch(e => {
-  console.error('Initialization warning:', e);
+  console.error(e);
+  document.body.innerHTML = '<main><h1>Could not start Flowspace</h1><p>Please check that the server is running.</p></main>';
 });

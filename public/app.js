@@ -615,6 +615,71 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     return { ok: true };
   }
 
+  if (method === 'POST' && path.includes('/comments')) {
+    const taskId = path.split('/')[3];
+    const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+    const t = db.tasks.find(x => x.id === taskId);
+    if (t) {
+      if (!t.comments) t.comments = [];
+      const newComment = {
+        id: 'c-' + Date.now(),
+        author: user ? user.name : 'Member',
+        text: body.text,
+        at: new Date().toISOString()
+      };
+      t.comments.push(newComment);
+      saveStaticDb(db);
+
+      const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
+      const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'commented on task', task: t.title, at: new Date().toISOString() };
+      if (!db.activity) db.activity = [];
+      db.activity.unshift(actEntry);
+      saveStaticDb(db);
+
+      if (sb) {
+        try {
+          await sb.from('tasks').update({ comments: t.comments }).eq('id', taskId);
+          await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'commented on task', task: t.title }]);
+        } catch (e) {}
+      }
+    }
+    return { ok: true };
+  }
+
+  if (method === 'POST' && path.includes('/attachments')) {
+    const taskId = path.split('/')[3];
+    const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+    const t = db.tasks.find(x => x.id === taskId);
+    if (t) {
+      if (!t.attachments) t.attachments = [];
+      const newAtt = {
+        id: 'att-' + Date.now(),
+        name: body.name || 'attachment',
+        size: body.size || 0,
+        type: body.type || '',
+        data: body.data || '',
+        uploader: user ? user.name : 'Member',
+        at: new Date().toISOString()
+      };
+      t.attachments.push(newAtt);
+      saveStaticDb(db);
+
+      const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
+      const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'uploaded file for task', task: t.title, at: new Date().toISOString() };
+      if (!db.activity) db.activity = [];
+      db.activity.unshift(actEntry);
+      saveStaticDb(db);
+
+      if (sb) {
+        try {
+          await sb.from('tasks').update({ attachments: t.attachments }).eq('id', taskId);
+          await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'uploaded file for task', task: t.title }]);
+        } catch (e) {}
+      }
+    }
+    return { ok: true };
+  }
+
   // 5. Invites
   if (method === 'POST' && path === '/api/invites') {
     const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
@@ -2153,13 +2218,27 @@ function openTask(id) {
 
 async function uploadFile(id, f) {
   if (!f) return;
-  if (f.size > 2e6) return toast('Choose a file under 2 MB');
+  if (f.size > 5e6) return toast('Please choose a file under 5 MB');
   const r = new FileReader();
   r.onload = async () => {
-    await api(`/api/tasks/${id}/attachments`, { method: 'POST', body: JSON.stringify({ name: f.name, size: f.size, type: f.type, data: r.result }) });
-    await refresh();
-    openTask(id);
-    toast('Attachment saved');
+    try {
+      const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
+      await api(`/api/tasks/${id}/attachments`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: f.name,
+          size: f.size,
+          type: f.type,
+          data: r.result,
+          uploader: user ? user.name : 'Member'
+        })
+      });
+      await refresh();
+      openTask(id);
+      toast('Attachment uploaded & saved to Supabase!');
+    } catch (e) {
+      toast(e.message || 'Failed to upload attachment');
+    }
   };
   r.readAsDataURL(f);
 }

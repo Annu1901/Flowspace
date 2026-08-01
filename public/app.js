@@ -480,7 +480,15 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
 
     // Target notification ONLY if assigned to a specific member other than caller
     if (task.assigneeId) {
-      const assigneeMem = db.members.find(m => m.id === task.assigneeId);
+      const mems = (typeof state !== 'undefined' && state.members && state.members.length > 0) ? state.members : db.members;
+      let assigneeMem = mems.find(m => m.id === task.assigneeId);
+      if (!assigneeMem && sb) {
+        try {
+          const { data: dbMem } = await sb.from('members').select('*').eq('id', task.assigneeId).single();
+          if (dbMem) assigneeMem = { ...dbMem, workspaceId: dbMem.workspace_id };
+        } catch (e) {}
+      }
+
       if (assigneeMem && assigneeMem.email && assigneeMem.email.toLowerCase() !== (user?.email || '').toLowerCase()) {
         const notifText = `You were assigned task "${task.title}" by ${user ? user.name : 'a teammate'}.`;
         const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, targetEmail: assigneeMem.email.toLowerCase(), read: false, at: new Date().toISOString() };
@@ -521,7 +529,15 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       // Target notification ONLY if task is assigned to a member other than caller
       const targetAssigneeId = body.assigneeId || t.assigneeId;
       if (targetAssigneeId) {
-        const assigneeMem = db.members.find(m => m.id === targetAssigneeId);
+        const mems = (typeof state !== 'undefined' && state.members && state.members.length > 0) ? state.members : db.members;
+        let assigneeMem = mems.find(m => m.id === targetAssigneeId);
+        if (!assigneeMem && sb) {
+          try {
+            const { data: dbMem } = await sb.from('members').select('*').eq('id', targetAssigneeId).single();
+            if (dbMem) assigneeMem = { ...dbMem, workspaceId: dbMem.workspace_id };
+          } catch (e) {}
+        }
+
         if (assigneeMem && assigneeMem.email && assigneeMem.email.toLowerCase() !== (user?.email || '').toLowerCase()) {
           const notifText = body.status === 'done'
             ? `🎉 Task "${t.title}" was marked as completed by ${user ? user.name : 'a teammate'}!`
@@ -922,9 +938,10 @@ const date = v => v ? new Date(v + 'T12:00:00').toLocaleDateString('en', { month
 const activeWorkspace = () => state.activeWorkspaceId || state.workspace?.id;
 const currentTasks = () => {
   const wsTasks = state.tasks.filter(t => (t.workspaceId || state.workspace?.id) === activeWorkspace());
+  if (currentSelectedProjectId === 'all') return wsTasks;
   const activeProj = getActiveProject();
   if (!activeProj) return wsTasks;
-  return wsTasks.filter(t => t.projectId === activeProj.id);
+  return wsTasks.filter(t => t.projectId === activeProj.id || !t.projectId || t.projectId === state.projects?.[0]?.id);
 };
 
 function timeUI() {

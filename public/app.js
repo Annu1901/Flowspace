@@ -34,8 +34,17 @@ function getSupabase() {
   return supabaseClient;
 }
 
-const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const statuses = [['todo', 'To do', '#9aa4b7'], ['progress', 'In progress', '#7553ed'], ['review', 'In review', '#ef9d27'], ['done', 'Done', '#35a274']];
+
+function normalizeStatus(s) {
+  if (!s) return 'todo';
+  const str = String(s).toLowerCase().trim();
+  if (str === 'todo' || str === 'to_do' || str === 'to do') return 'todo';
+  if (str === 'progress' || str === 'in_progress' || str === 'in progress' || str === 'inprogress') return 'progress';
+  if (str === 'review' || str === 'in_review' || str === 'in review' || str === 'inreview') return 'review';
+  if (str === 'done' || str === 'completed' || str === 'complete') return 'done';
+  return 'todo';
+}
 
 function getStaticDb() {
   let db = JSON.parse(localStorage.getItem('flowspace_static_db') || 'null');
@@ -143,6 +152,7 @@ async function fetchSupabaseState(user) {
         assigneeId: t.assignee_id || t.assigneeId,
         createdBy: (t.created_by || t.createdBy || '').toLowerCase(),
         dueDate: t.due_date || t.dueDate,
+        status: normalizeStatus(t.status),
         attachments: t.attachments || [],
         comments: t.comments || []
       }));
@@ -1108,31 +1118,46 @@ function renderWorkspace() {
 }
 
 function renderOverview() {
-  const ts = currentTasks(), total = ts.length, done = ts.filter(t => t.status === 'done').length, progress = ts.filter(t => t.status === 'progress').length, todo = ts.filter(t => t.status === 'todo').length, pct = total ? Math.round(done / total * 100) : 0;
-  $('#completed-count').textContent = done;
-  $('#progress-count').textContent = progress;
-  $('#todo-count').textContent = todo;
-  $('#member-count').textContent = state.members.length;
-  $('#completion-note').textContent = `${done} of ${total} tasks completed`;
-  $('.orbit-core').innerHTML = `${pct}%<small>complete</small>`;
+  const ts = currentTasks();
+  const total = ts.length;
+  const done = ts.filter(t => normalizeStatus(t.status) === 'done').length;
+  const progress = ts.filter(t => normalizeStatus(t.status) === 'progress').length;
+  const todo = ts.filter(t => normalizeStatus(t.status) === 'todo').length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+
+  if ($('#completed-count')) $('#completed-count').textContent = done;
+  if ($('#progress-count')) $('#progress-count').textContent = progress;
+  if ($('#todo-count')) $('#todo-count').textContent = todo;
+  if ($('#member-count')) $('#member-count').textContent = state.members.length;
+  if ($('#completion-note')) $('#completion-note').textContent = `${done} of ${total} tasks completed`;
+  if ($('.orbit-core')) $('.orbit-core').innerHTML = `${pct}%<small>complete</small>`;
+
   let cursor = 0;
   const segments = [];
   statuses.forEach(([k, , color]) => {
-    const share = total ? (ts.filter(t => t.status === k).length / total * 100) : 0;
+    const count = ts.filter(t => normalizeStatus(t.status) === k).length;
+    const share = total ? ((count / total) * 100) : 0;
     if (share > 0) {
       const end = cursor + share;
       segments.push(`${color} ${cursor}% ${end}%`);
       cursor = end;
     }
   });
+
   const liveGradient = segments.length ? `conic-gradient(${segments.join(',')})` : '#edf0f5';
-  $('#donut').style.background = liveGradient;
+  if ($('#donut')) $('#donut').style.background = liveGradient;
   const heroRing = $('.orbit-core');
-  heroRing.style.border = '0';
-  heroRing.style.background = `conic-gradient(var(--primary) 0%, var(--primary) ${pct}%, var(--line) ${pct}%, var(--line) 100%)`;
-  $('#donut-value').textContent = pct + '%';
-  $('#status-breakdown').innerHTML = statuses.map(([k, n, c]) => `<div class="break-item"><i style="background:${c}"></i><span>${n}</span><b>${ts.filter(t => t.status === k).length}</b></div>`).join('');
-  $('#activity-list').innerHTML = activityMarkup(state.activity.slice(0, 4));
+  if (heroRing) {
+    heroRing.style.border = '0';
+    heroRing.style.background = `conic-gradient(var(--primary) 0%, var(--primary) ${pct}%, var(--line) ${pct}%, var(--line) 100%)`;
+  }
+  if ($('#donut-value')) $('#donut-value').textContent = pct + '%';
+  if ($('#status-breakdown')) {
+    $('#status-breakdown').innerHTML = statuses.map(([k, n, c]) => 
+      `<div class="break-item"><i style="background:${c}"></i><span>${n}</span><b>${ts.filter(t => normalizeStatus(t.status) === k).length}</b></div>`
+    ).join('');
+  }
+  if ($('#activity-list')) $('#activity-list').innerHTML = activityMarkup(state.activity.slice(0, 4));
 }
 
 function activityMarkup(rows) {
@@ -1332,7 +1357,7 @@ function renderBoard() {
   $('#assignee-filter').innerHTML = '<option value="">Everyone</option>' + state.members.map(m => `<option value="${m.id}" ${m.id === assignee ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
   const ts = currentTasks();
   $('#board-columns').innerHTML = statuses.map(([status, label, color]) => {
-    const tasks = ts.filter(t => t.status === status && (!assignee || t.assigneeId === assignee) && (!priority || t.priority === priority));
+    const tasks = ts.filter(t => normalizeStatus(t.status) === status && (!assignee || t.assigneeId === assignee) && (!priority || t.priority === priority));
     return `<div class="column" data-status="${status}"><div class="column-head"><span><i style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin-right:7px"></i>${label}</span><span class="column-count">${tasks.length}</span></div><div class="dropzone">${tasks.map(taskMarkup).join('')}</div></div>`;
   }).join('');
   $$('.task-card').forEach(e => {

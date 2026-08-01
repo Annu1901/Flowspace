@@ -37,16 +37,288 @@ function getSupabase() {
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const statuses = [['todo', 'To do', '#9aa4b7'], ['progress', 'In progress', '#7553ed'], ['review', 'In review', '#ef9d27'], ['done', 'Done', '#35a274']];
 
+function getStaticDb() {
+  let db = JSON.parse(localStorage.getItem('flowspace_static_db') || 'null');
+  if (!db) {
+    db = {
+      users: [
+        { id: 'u-101', name: 'Ayush', email: 'aayu21082005@gmail.com', password: 'Password@123', activeWorkspaceId: 'ws-1' },
+        { id: 'u-102', name: 'Annu', email: 'dagarannu40@gmail.com', password: 'Password@123', activeWorkspaceId: 'ws-2' }
+      ],
+      workspaces: [
+        { id: 'ws-1', name: "Ayush's Workspace", description: 'Your default workspace', createdAt: new Date().toISOString() },
+        { id: 'ws-2', name: "Annu's Workspace", description: 'Your default workspace', createdAt: new Date().toISOString() }
+      ],
+      projects: [
+        { id: 'proj-1', workspaceId: 'ws-1', name: 'Product launch', description: 'Plan and ship milestone', createdAt: new Date().toISOString() },
+        { id: 'proj-2', workspaceId: 'ws-2', name: 'Design System', description: 'Components & Tokens', createdAt: new Date().toISOString() }
+      ],
+      members: [
+        { id: 'm-1', workspaceId: 'ws-1', name: 'Ayush', email: 'aayu21082005@gmail.com', initials: 'AY', color: '#7c3aed', role: 'Workspace admin' },
+        { id: 'm-2', workspaceId: 'ws-2', name: 'Annu', email: 'dagarannu40@gmail.com', initials: 'AN', color: '#0ea5e9', role: 'Workspace admin' }
+      ],
+      tasks: [],
+      invites: [],
+      activity: [],
+      notifications: []
+    };
+    localStorage.setItem('flowspace_static_db', JSON.stringify(db));
+  }
+  return db;
+}
+
+function saveStaticDb(db) {
+  localStorage.setItem('flowspace_static_db', JSON.stringify(db));
+}
+
+async function handleStaticClientApi(urlStr, opts = {}, user = null) {
+  const db = getStaticDb();
+  const urlObj = new URL(urlStr, window.location.origin);
+  const path = urlObj.pathname;
+  const method = (opts.method || 'GET').toUpperCase();
+  const body = opts.body ? JSON.parse(opts.body) : {};
+
+  // 1. Auth Endpoints
+  if (method === 'POST' && path === '/api/auth/login') {
+    let u = db.users.find(x => x.email.toLowerCase() === body.email?.toLowerCase() && x.password === body.password);
+    if (!u) {
+      const name = body.email.split('@')[0];
+      const ws = { id: 'ws-' + Date.now(), name: `${name}'s Workspace`, description: 'Default workspace', createdAt: new Date().toISOString() };
+      u = { id: 'u-' + Date.now(), name: name, email: body.email, password: body.password, activeWorkspaceId: ws.id };
+      const m = { id: 'm-' + Date.now(), workspaceId: ws.id, name: name, email: body.email, initials: name.slice(0,2).toUpperCase(), color: '#7c3aed', role: 'Workspace admin' };
+      db.users.push(u);
+      db.workspaces.push(ws);
+      db.members.push(m);
+      saveStaticDb(db);
+    }
+    return { id: u.id, name: u.name, email: u.email };
+  }
+
+  if (method === 'POST' && path === '/api/auth/signup') {
+    let u = db.users.find(x => x.email.toLowerCase() === body.email?.toLowerCase());
+    if (u) throw new Error('A user with this email already exists');
+    const ws = { id: 'ws-' + Date.now(), name: `${body.name.trim()}'s Workspace`, description: 'Default workspace', createdAt: new Date().toISOString() };
+    u = { id: 'u-' + Date.now(), name: body.name.trim(), email: body.email.trim(), password: body.password, activeWorkspaceId: ws.id };
+    const m = { id: 'm-' + Date.now(), workspaceId: ws.id, name: u.name, email: u.email, initials: u.name.slice(0,2).toUpperCase(), color: '#7c3aed', role: 'Workspace admin' };
+    db.users.push(u);
+    db.workspaces.push(ws);
+    db.members.push(m);
+    saveStaticDb(db);
+    return { id: u.id, name: u.name, email: u.email };
+  }
+
+  if (method === 'POST' && path === '/api/auth/reset-password') {
+    const u = db.users.find(x => x.email.toLowerCase() === body.email?.toLowerCase());
+    if (u) {
+      u.password = body.password;
+      saveStaticDb(db);
+    }
+    return { ok: true, message: 'Password updated' };
+  }
+
+  // 2. Fetch State
+  if (method === 'GET' && path === '/api/state') {
+    if (!user) throw new Error('Unauthorized');
+    
+    db.invites.forEach(inv => {
+      if (inv.status === 'Declined' || inv.status === 'Pending') {
+        db.members = db.members.filter(m => !(m.workspaceId === inv.workspaceId && m.email.toLowerCase() === inv.email.toLowerCase()));
+      }
+    });
+
+    const userWorkspaces = db.workspaces.filter(w => 
+      db.members.some(m => m.workspaceId === w.id && m.email.toLowerCase() === user.email.toLowerCase())
+    );
+    const userRecord = db.users.find(u => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
+    let activeId = userRecord?.activeWorkspaceId;
+    if (!activeId || !userWorkspaces.some(w => w.id === activeId)) {
+      activeId = userWorkspaces[0]?.id || '';
+      if (userRecord) userRecord.activeWorkspaceId = activeId;
+    }
+    saveStaticDb(db);
+
+    const activeWorkspace = db.workspaces.find(w => w.id === activeId) || userWorkspaces[0] || null;
+    const workspaceMembers = activeId ? db.members.filter(m => m.workspaceId === activeId) : [];
+    const workspaceTasks = activeId ? db.tasks.filter(t => t.workspaceId === activeId) : [];
+    const workspaceInvites = activeId ? db.invites.filter(i => i.workspaceId === activeId) : [];
+    let workspaceProjects = activeId ? db.projects.filter(p => p.workspaceId === activeId) : [];
+
+    if (workspaceProjects.length === 0 && activeWorkspace) {
+      const defaultProj = { id: 'p-' + Date.now(), workspaceId: activeId, name: 'Product launch', description: 'Plan and ship milestone', createdAt: new Date().toISOString() };
+      db.projects.push(defaultProj);
+      workspaceProjects = [defaultProj];
+      saveStaticDb(db);
+    }
+
+    const receivedInvites = db.invites.filter(i => i.email.toLowerCase() === user.email.toLowerCase()).map(i => {
+      const ws = db.workspaces.find(w => w.id === i.workspaceId);
+      return { ...i, workspaceName: ws ? ws.name : (i.workspaceName || 'Unknown Workspace') };
+    });
+
+    const pendingUserInvites = receivedInvites.filter(i => i.status === 'Pending');
+
+    return {
+      workspace: activeWorkspace,
+      workspaces: userWorkspaces,
+      activeWorkspaceId: activeId,
+      projects: workspaceProjects,
+      members: workspaceMembers,
+      invites: workspaceInvites,
+      tasks: workspaceTasks,
+      activity: db.activity || [],
+      notifications: db.notifications || [],
+      pendingInvites: pendingUserInvites,
+      receivedInvites: receivedInvites
+    };
+  }
+
+  // 3. Workspaces
+  if (method === 'POST' && path === '/api/workspaces') {
+    const ws = { id: 'ws-' + Date.now(), name: body.name?.trim() || 'Untitled Workspace', description: body.description || '', createdAt: new Date().toISOString() };
+    const m = { id: 'm-' + Date.now(), workspaceId: ws.id, name: user.name, email: user.email, initials: user.name.slice(0,2).toUpperCase(), color: '#7c3aed', role: 'Workspace admin' };
+    db.workspaces.push(ws);
+    db.members.push(m);
+    const uRecord = db.users.find(x => x.id === user.id || x.email.toLowerCase() === user.email.toLowerCase());
+    if (uRecord) uRecord.activeWorkspaceId = ws.id;
+    saveStaticDb(db);
+    return ws;
+  }
+
+  if (method === 'POST' && path.includes('/select')) {
+    const parts = path.split('/');
+    const wsId = parts[3];
+    const isMem = db.members.some(m => m.workspaceId === wsId && m.email.toLowerCase() === user.email.toLowerCase());
+    if (!isMem) throw new Error('Access denied to workspace');
+    const uRecord = db.users.find(x => x.id === user.id || x.email.toLowerCase() === user.email.toLowerCase());
+    if (uRecord) uRecord.activeWorkspaceId = wsId;
+    saveStaticDb(db);
+    return { ok: true };
+  }
+
+  // 4. Tasks
+  if (method === 'POST' && path === '/api/tasks') {
+    const uRecord = db.users.find(x => x.id === user.id || x.email.toLowerCase() === user.email.toLowerCase());
+    const wsId = uRecord?.activeWorkspaceId || 'ws-1';
+    const task = {
+      id: 't-' + Date.now(),
+      workspaceId: wsId,
+      projectId: body.projectId || '',
+      title: body.title,
+      description: body.description || '',
+      status: body.status || 'todo',
+      priority: body.priority || 'medium',
+      assigneeId: body.assigneeId || '',
+      dueDate: body.dueDate || '',
+      tags: body.tags || [],
+      attachments: [],
+      comments: [],
+      createdAt: new Date().toISOString()
+    };
+    db.tasks.push(task);
+    saveStaticDb(db);
+    return task;
+  }
+
+  if (method === 'PATCH' && path.startsWith('/api/tasks/')) {
+    const taskId = path.split('/')[3];
+    const t = db.tasks.find(x => x.id === taskId);
+    if (t) {
+      Object.assign(t, body);
+      saveStaticDb(db);
+    }
+    return t;
+  }
+
+  if (method === 'DELETE' && path.startsWith('/api/tasks/')) {
+    const taskId = path.split('/')[3];
+    db.tasks = db.tasks.filter(x => x.id !== taskId);
+    saveStaticDb(db);
+    return { ok: true };
+  }
+
+  // 5. Invites
+  if (method === 'POST' && path === '/api/invites') {
+    const uRecord = db.users.find(x => x.id === user.id || x.email.toLowerCase() === user.email.toLowerCase());
+    const wsId = uRecord?.activeWorkspaceId || 'ws-1';
+    const ws = db.workspaces.find(w => w.id === wsId);
+    const invite = {
+      id: 'inv-' + Date.now(),
+      workspaceId: wsId,
+      workspaceName: ws ? ws.name : 'Workspace',
+      email: body.email.trim(),
+      name: body.name || body.email.split('@')[0],
+      role: body.role || 'Workspace member',
+      status: 'Pending',
+      createdAt: new Date().toISOString()
+    };
+    db.invites.push(invite);
+    saveStaticDb(db);
+    return invite;
+  }
+
+  if (method === 'POST' && path === '/api/invites/join') {
+    const invite = db.invites.find(i => i.id === body.id);
+    if (invite) {
+      invite.status = 'Accepted';
+      const m = { id: 'm-' + Date.now(), workspaceId: invite.workspaceId, name: user.name, email: user.email, initials: user.name.slice(0,2).toUpperCase(), color: '#0ea5e9', role: invite.role || 'Workspace member' };
+      db.members.push(m);
+      const uRecord = db.users.find(x => x.id === user.id || x.email.toLowerCase() === user.email.toLowerCase());
+      if (uRecord) uRecord.activeWorkspaceId = invite.workspaceId;
+      saveStaticDb(db);
+    }
+    return { ok: true };
+  }
+
+  if (method === 'POST' && path === '/api/invites/decline') {
+    const invite = db.invites.find(i => i.id === body.id);
+    if (invite) {
+      invite.status = 'Declined';
+      db.members = db.members.filter(m => !(m.workspaceId === invite.workspaceId && m.email.toLowerCase() === user.email.toLowerCase()));
+      saveStaticDb(db);
+    }
+    return { ok: true };
+  }
+
+  if (method === 'PATCH' && path === '/api/account') {
+    const uRecord = db.users.find(x => x.id === user.id || x.email.toLowerCase() === user.email.toLowerCase());
+    if (uRecord) {
+      if (body.name) uRecord.name = body.name.trim();
+      if (body.email) uRecord.email = body.email.trim();
+      if (body.password) uRecord.password = body.password;
+      saveStaticDb(db);
+      return { id: uRecord.id, name: uRecord.name, email: uRecord.email };
+    }
+  }
+
+  return { ok: true };
+}
+
 async function api(url, opts = {}) {
   const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
   const headers = { 'Content-Type': 'application/json' };
   if (user && user.id) {
     headers['x-user-id'] = user.id;
   }
-  const r = await fetch(url, { headers: { ...headers, ...(opts.headers || {}) }, ...opts });
-  const d = await r.json();
-  if (!r.ok) throw Error(d.error || 'Request failed');
-  return d;
+  try {
+    const r = await fetch(url, { headers: { ...headers, ...(opts.headers || {}) }, ...opts });
+    const text = await r.text();
+    if (text.trim().startsWith('<')) {
+      return handleStaticClientApi(url, opts, user);
+    }
+    let d;
+    try {
+      d = JSON.parse(text);
+    } catch (e) {
+      return handleStaticClientApi(url, opts, user);
+    }
+    if (!r.ok) throw Error(d.error || 'Request failed');
+    return d;
+  } catch (err) {
+    if (err.message && !err.message.includes('A user with this email') && !err.message.includes('Password') && !err.message.includes('Invalid')) {
+      return handleStaticClientApi(url, opts, user);
+    }
+    throw err;
+  }
 }
 
 let currentSelectedProjectId = localStorage.getItem('flowspace_active_project') || '';

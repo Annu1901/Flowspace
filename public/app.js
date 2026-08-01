@@ -136,7 +136,16 @@ async function fetchSupabaseState(user) {
       workspaceMembers = Array.from(memMap.values());
 
       const { data: tsks } = await sb.from('tasks').select('*').eq('workspace_id', activeId);
-      workspaceTasks = (tsks || []).map(t => ({ ...t, workspaceId: t.workspace_id || t.workspaceId, projectId: t.project_id || t.projectId, assigneeId: t.assignee_id || t.assigneeId, dueDate: t.due_date || t.dueDate }));
+      workspaceTasks = (tsks || []).map(t => ({
+        ...t,
+        workspaceId: t.workspace_id || t.workspaceId,
+        projectId: t.project_id || t.projectId,
+        assigneeId: t.assignee_id || t.assigneeId,
+        createdBy: (t.created_by || t.createdBy || '').toLowerCase(),
+        dueDate: t.due_date || t.dueDate,
+        attachments: t.attachments || [],
+        comments: t.comments || []
+      }));
 
       const { data: projs } = await sb.from('projects').select('*').eq('workspace_id', activeId);
       workspaceProjects = (projs || []).map(p => ({ ...p, workspaceId: p.workspace_id || p.workspaceId }));
@@ -436,6 +445,7 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       status: body.status || 'todo',
       priority: body.priority || 'medium',
       assigneeId: body.assigneeId || '',
+      createdBy: user ? user.email.toLowerCase() : '',
       dueDate: body.dueDate || '',
       tags: body.tags || [],
       attachments: [],
@@ -455,6 +465,7 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
           status: body.status || 'todo',
           priority: body.priority || 'medium',
           assignee_id: body.assigneeId || null,
+          created_by: user ? user.email.toLowerCase() : null,
           due_date: body.dueDate || null,
           tags: body.tags || []
         }]);
@@ -569,6 +580,37 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       try {
         await sb.from('tasks').delete().eq('id', taskId);
       } catch (e) {}
+    }
+    return { ok: true };
+  }
+
+  if (method === 'POST' && path.includes('/alert')) {
+    const taskId = path.split('/')[3];
+    const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+    const t = db.tasks.find(x => x.id === taskId);
+    if (t) {
+      const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
+      const assigneeMem = db.members.find(m => m.id === t.assigneeId);
+      const targetEmail = assigneeMem && assigneeMem.email ? assigneeMem.email.toLowerCase() : (user ? user.email.toLowerCase() : '');
+
+      const notifText = `⏰ Deadline Reminder: Task "${t.title}" is due soon (${date(t.dueDate)})!`;
+      const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, targetEmail: targetEmail, read: false, at: new Date().toISOString() };
+      if (!db.notifications) db.notifications = [];
+      db.notifications.unshift(notifObj);
+
+      const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'sent deadline reminder for', task: t.title, at: new Date().toISOString() };
+      if (!db.activity) db.activity = [];
+      db.activity.unshift(actEntry);
+
+      saveStaticDb(db);
+      if (sb) {
+        try {
+          if (targetEmail) {
+            await sb.from('notifications').insert([{ workspace_id: activeWsId, text: notifText, target_email: targetEmail, read: false }]);
+          }
+          await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'sent deadline reminder for', task: t.title }]);
+        } catch (e) {}
+      }
     }
     return { ok: true };
   }
@@ -939,13 +981,25 @@ function canUserModifyTask(t) {
   
   const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
   if (!user) return false;
-  const currentMember = state.members.find(x => x.email.toLowerCase() === user.email.toLowerCase());
-  if (!currentMember) return false;
-  
-  if (t.assigneeId && t.assigneeId !== currentMember.id) {
-    return false;
+
+  // 1. Task creator can ALWAYS modify their created task
+  if (t.createdBy && t.createdBy.toLowerCase() === user.email.toLowerCase()) {
+    return true;
   }
-  return true;
+
+  const currentMember = state.members.find(x => x.email.toLowerCase() === user.email.toLowerCase());
+  
+  // 2. Assignee can modify the task assigned to them
+  if (currentMember && t.assigneeId && (t.assigneeId === currentMember.id || t.assigneeId === user.id)) {
+    return true;
+  }
+
+  // 3. Unassigned tasks can be modified by any Workspace member
+  if (!t.assigneeId) {
+    return true;
+  }
+
+  return false;
 }
 
 function render() {
@@ -1960,9 +2014,32 @@ function openTask(id) {
   const canModify = canUserModifyTask(t);
   const isNear = t.dueDate && t.status !== 'done' && new Date(t.dueDate + 'T23:59:59') - Date.now() < 7 * 864e5;
 
-  const attachmentsMarkup = isViewer
-    ? `<div>${t.attachments.map(a => `<div class="attachment"><span>⌁ ${esc(a.name)}</span><span>${Math.ceil(a.size/1024)} KB</span></div>`).join('') || '<p class="empty">No files attached.</p>'}</div>`
-    : `<div>${t.attachments.map(a => `<div class="attachment"><span>⌁ ${esc(a.name)}</span><span>${Math.ceil(a.size/1024)} KB</span></div>`).join('') || '<p class="empty">No files attached.</p>'}</div><input type="file" id="file-input">`;
+  const renderAttachmentItem = (a) => {
+    const isImg = a.type && a.type.startsWith('image/');
+    const preview = isImg && a.data ? `<img src="${a.data}" alt="${esc(a.name)}" style="max-height:100px;border-radius:6px;margin-top:8px;display:block;object-fit:cover">` : '';
+    return `
+      <div class="attachment-item" style="padding:10px 14px;background:var(--violet);border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:16px">📎</span>
+            <div>
+              <b style="font-size:13px;color:var(--ink);display:block">${esc(a.name)}</b>
+              <small style="font-size:11px;color:var(--muted)">${Math.ceil((a.size || 0)/1024)} KB</small>
+            </div>
+          </div>
+          ${a.data ? `<a href="${a.data}" target="_blank" download="${esc(a.name)}" class="primary" style="font-size:12px;padding:6px 12px;text-decoration:none;border-radius:6px;display:inline-flex;align-items:center;gap:4px">📥 Download / View</a>` : ''}
+        </div>
+        ${preview}
+      </div>
+    `;
+  };
+
+  const attachmentsMarkup = `
+    <div class="attachments-list" style="margin-bottom:12px">
+      ${(t.attachments || []).map(renderAttachmentItem).join('') || '<p class="empty" style="color:var(--muted);font-size:13px">No files attached yet.</p>'}
+    </div>
+    ${!isViewer ? '<label class="secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:13px;background:var(--violet);border:1px solid var(--line)">📤 Upload File<input type="file" id="file-input" style="display:none"></label>' : ''}
+  `;
 
   const commentFormMarkup = isViewer
     ? ''

@@ -462,10 +462,15 @@ const server = http.createServer(async (req, res) => {
       const wsProjects = data.projects.filter(p => p.workspaceId === activeWsId);
       const projId = b.projectId || wsProjects[0]?.id || '';
       const proj = data.projects.find(p => p.id === projId);
-      const task = { id:id(), workspaceId:activeWsId, projectId:projId, title:b.title?.trim() || 'Untitled task', description:b.description || '', status:b.status || 'todo', priority:b.priority || 'medium', assigneeId:b.assigneeId || '', dueDate:b.dueDate || '', tags:b.tags || [], comments:[], attachments:[], createdAt:now(), updatedAt:now() };
+      const task = { id:id(), workspaceId:activeWsId, projectId:projId, title:b.title?.trim() || 'Untitled task', description:b.description || '', status:b.status || 'todo', priority:b.priority || 'medium', assigneeId:b.assigneeId || '', createdBy: user ? user.email.toLowerCase() : '', dueDate:b.dueDate || '', tags:b.tags || [], comments:[], attachments:[], createdAt:now(), updatedAt:now() };
       data.tasks.push(task);
       log(data, user.name, 'created task', `${task.title}${proj ? ` in ${proj.name}` : ''}`);
-      notify(data, `New task: ${task.title}${proj ? ` in ${proj.name}` : ''}`);
+      if (task.assigneeId) {
+        const m = data.members.find(x => x.id === task.assigneeId);
+        if (m && m.email.toLowerCase() !== user.email.toLowerCase()) {
+          notify(data, `You were assigned task "${task.title}" by ${user.name}.`, m.email);
+        }
+      }
       save(data);
       return json(res, 201, task);
     }
@@ -477,8 +482,10 @@ const server = http.createServer(async (req, res) => {
         if (callerRole === 'Viewer') return json(res, 403, { error: 'Viewers have read-only access and cannot modify tasks' });
         if (callerRole === 'Workspace member') {
           const callerMember = data.members.find(m => m.workspaceId === task.workspaceId && m.email.toLowerCase() === user.email.toLowerCase());
-          if (task.assigneeId && callerMember && task.assigneeId !== callerMember.id) {
-            return json(res, 403, { error: 'Workspace members can only modify tasks assigned to them' });
+          const isCreator = task.createdBy && task.createdBy.toLowerCase() === user.email.toLowerCase();
+          const isAssignee = task.assigneeId && callerMember && task.assigneeId === callerMember.id;
+          if (!isCreator && !isAssignee && task.assigneeId) {
+            return json(res, 403, { error: 'Workspace members can only modify tasks assigned to them or created by them' });
           }
         }
         const b=await body(req);
@@ -488,19 +495,37 @@ const server = http.createServer(async (req, res) => {
         const projSuffix = proj ? ` in ${proj.name}` : '';
         if (b.status && b.status !== oldStatus) log(data,user.name,`moved to ${b.status.replace('progress','in progress')}${projSuffix}`,task.title);
         else log(data,user.name,'updated',task.title);
-        if (b.assigneeId) {
-          const m=data.members.find(x=>x.id===b.assigneeId);
-          if(m) notify(data,`${m.name} was assigned “${task.title}”${projSuffix}.`, m.email);
+        if (b.assigneeId || task.assigneeId) {
+          const m=data.members.find(x=>x.id===(b.assigneeId || task.assigneeId));
+          if(m && m.email.toLowerCase() !== user.email.toLowerCase()) {
+            notify(data, b.status === 'done' ? `🎉 Task "${task.title}" was marked as completed by ${user.name}!` : `Task "${task.title}" was updated by ${user.name}.`, m.email);
+          }
         }
         save(data);
         return json(res,200,task);
       }
       if (req.method === 'DELETE' && parts.length === 3) {
-        if (getCallerRole(req, data, task.workspaceId) !== 'Workspace admin') return json(res, 403, { error: 'Only workspace admins can delete tasks' });
+        const callerRole = getCallerRole(req, data, task.workspaceId);
+        const isCreator = task.createdBy && task.createdBy.toLowerCase() === user.email.toLowerCase();
+        const callerMember = data.members.find(m => m.workspaceId === task.workspaceId && m.email.toLowerCase() === user.email.toLowerCase());
+        const isAssignee = task.assigneeId && callerMember && task.assigneeId === callerMember.id;
+        if (callerRole !== 'Workspace admin' && !isCreator && !isAssignee) {
+          return json(res, 403, { error: 'Only workspace admins, task creators, or assignees can delete tasks' });
+        }
         data.tasks = data.tasks.filter(t=>t.id!==task.id);
         log(data,user.name,'deleted',task.title);
         save(data);
         return json(res,200,{ok:true});
+      }
+      if (req.method === 'POST' && parts[3] === 'alert') {
+        const callerRole = getCallerRole(req, data, task.workspaceId);
+        if (callerRole === 'Viewer') return json(res, 403, { error: 'Viewers cannot send reminders' });
+        const assigneeMem = data.members.find(m => m.id === task.assigneeId);
+        const targetEmail = assigneeMem && assigneeMem.email ? assigneeMem.email : user.email;
+        notify(data, `⏰ Deadline Reminder: Task "${task.title}" is due soon!`, targetEmail);
+        log(data, user.name, 'sent deadline reminder for', task.title);
+        save(data);
+        return json(res, 200, { ok: true });
       }
       if (req.method === 'POST' && parts[3] === 'comments') {
         if (getCallerRole(req, data, task.workspaceId) === 'Viewer') return json(res, 403, { error: 'Viewers have read-only access and cannot comment' });

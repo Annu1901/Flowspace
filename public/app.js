@@ -1,4 +1,53 @@
 // Theme Initialization & Preferences
+const fallbackTween = (target, vars = {}) => {
+  const targets = typeof target === 'string'
+    ? Array.from(document.querySelectorAll(target))
+    : target instanceof Element
+      ? [target]
+      : [target];
+
+  targets.filter(Boolean).forEach(item => {
+    if (item instanceof Element) {
+      if (vars.opacity !== undefined) item.style.opacity = String(vars.opacity);
+      if (vars.height !== undefined) item.style.height = typeof vars.height === 'number' ? `${vars.height}px` : vars.height;
+      if (vars.clearProps === 'all') {
+        item.style.removeProperty('opacity');
+        item.style.removeProperty('transform');
+      }
+    } else if (typeof item === 'object') {
+      Object.entries(vars).forEach(([key, value]) => {
+        if (!['duration', 'delay', 'ease', 'stagger', 'overwrite', 'clearProps', 'onComplete', 'onUpdate'].includes(key)) {
+          item[key] = value;
+        }
+      });
+    }
+  });
+
+  if (typeof vars.onUpdate === 'function') vars.onUpdate();
+  if (typeof vars.onComplete === 'function') vars.onComplete();
+  return { kill() {} };
+};
+
+window.gsap = window.gsap || {
+  to(target, vars) {
+    return fallbackTween(target, vars);
+  },
+  from(target, vars) {
+    return fallbackTween(target, { onComplete: vars?.onComplete });
+  },
+  fromTo(target, fromVars, toVars) {
+    return fallbackTween(target, toVars);
+  }
+};
+
+function withTimeout(promise, timeoutMs, fallbackValue = null) {
+  let timeoutId;
+  const timeout = new Promise(resolve => {
+    timeoutId = setTimeout(() => resolve(fallbackValue), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+}
+
 (function() {
   const currentTheme = localStorage.getItem('flowspace_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', currentTheme);
@@ -296,7 +345,7 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
 
     // Attempt Live Supabase PostgreSQL fetch first!
     if (sb) {
-      const sbState = await fetchSupabaseState(user);
+      const sbState = await withTimeout(fetchSupabaseState(user), 3000);
       if (sbState) return sbState;
     }
     
@@ -2017,7 +2066,7 @@ async function refresh() {
   }
   if (!state) {
     const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
-    const sbData = user ? await fetchSupabaseState(user) : null;
+    const sbData = user ? await withTimeout(fetchSupabaseState(user), 3000) : null;
     if (sbData) {
       state = sbData;
     } else {

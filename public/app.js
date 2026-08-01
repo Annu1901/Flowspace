@@ -138,6 +138,7 @@ async function fetchSupabaseState(user) {
       const { data: tsks } = await sb.from('tasks').select('*').eq('workspace_id', activeId);
       workspaceTasks = (tsks || []).map(t => ({
         ...t,
+        status: normalizeStatus(t.status),
         workspaceId: t.workspace_id || t.workspaceId,
         projectId: t.project_id || t.projectId,
         assigneeId: t.assignee_id || t.assigneeId,
@@ -932,6 +933,14 @@ function getActiveProject() {
   if (found) return found;
   return projects[0];
 }
+
+const statuses = [
+  ['todo', 'To Do', '#94a3b8'],
+  ['progress', 'In Progress', '#0ea5e9'],
+  ['done', 'Completed', '#10b981']
+];
+
+const normalizeStatus = s => (s === 'in_progress' || s === 'in progress' ? 'progress' : (s || 'todo'));
 
 const esc = s => String(s || '').replace(/[&<>'"]/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[x]));
 const member = id => state.members.find(m => m.id === id);

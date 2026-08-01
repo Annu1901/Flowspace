@@ -35,7 +35,11 @@ function getSupabase() {
 }
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
-const statuses = [['todo', 'To do', '#9aa4b7'], ['progress', 'In progress', '#7553ed'], ['review', 'In review', '#ef9d27'], ['done', 'Done', '#35a274']];
+const statuses = [
+  ['todo', 'To Do', '#94a3b8'],
+  ['progress', 'In Progress', '#0ea5e9'],
+  ['done', 'Completed', '#10b981']
+];
 
 function getStaticDb() {
   let db = JSON.parse(localStorage.getItem('flowspace_static_db') || 'null');
@@ -939,12 +943,6 @@ function getActiveProject() {
   if (found) return found;
   return projects[0];
 }
-
-const statuses = [
-  ['todo', 'To Do', '#94a3b8'],
-  ['progress', 'In Progress', '#0ea5e9'],
-  ['done', 'Completed', '#10b981']
-];
 
 const normalizeStatus = s => (s === 'in_progress' || s === 'in progress' ? 'progress' : (s || 'todo'));
 

@@ -126,7 +126,14 @@ async function fetchSupabaseState(user) {
     let workspaceMembers = [], workspaceTasks = [], workspaceProjects = [], workspaceInvites = [];
     if (activeId) {
       const { data: mems } = await sb.from('members').select('*').eq('workspace_id', activeId);
-      workspaceMembers = (mems || []).map(m => ({ ...m, workspaceId: m.workspace_id || m.workspaceId }));
+      const memMap = new Map();
+      (mems || []).forEach(m => {
+        const key = (m.email || '').toLowerCase();
+        if (!memMap.has(key)) {
+          memMap.set(key, { ...m, workspaceId: m.workspace_id || m.workspaceId });
+        }
+      });
+      workspaceMembers = Array.from(memMap.values());
 
       const { data: tsks } = await sb.from('tasks').select('*').eq('workspace_id', activeId);
       workspaceTasks = (tsks || []).map(t => ({ ...t, workspaceId: t.workspace_id || t.workspaceId, projectId: t.project_id || t.projectId, assigneeId: t.assignee_id || t.assigneeId, dueDate: t.due_date || t.dueDate }));
@@ -135,7 +142,14 @@ async function fetchSupabaseState(user) {
       workspaceProjects = (projs || []).map(p => ({ ...p, workspaceId: p.workspace_id || p.workspaceId }));
 
       const { data: invs } = await sb.from('invites').select('*').eq('workspace_id', activeId);
-      workspaceInvites = (invs || []).map(i => ({ ...i, workspaceId: i.workspace_id || i.workspaceId }));
+      const invMap = new Map();
+      (invs || []).forEach(i => {
+        const key = (i.email || '').toLowerCase();
+        if (!invMap.has(key)) {
+          invMap.set(key, { ...i, workspaceId: i.workspace_id || i.workspaceId });
+        }
+      });
+      workspaceInvites = Array.from(invMap.values());
     }
 
     if (workspaceProjects.length === 0 && activeWorkspace) {
@@ -479,6 +493,51 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
         const { data: targetInv } = await sb.from('invites').select('*').eq('id', body.id).single();
         if (targetInv) {
           await sb.from('members').delete().eq('workspace_id', targetInv.workspace_id).eq('email', user.email.toLowerCase());
+        }
+      } catch (e) {}
+    }
+    return { ok: true };
+  }
+
+  if (method === 'DELETE' && path.startsWith('/api/invites/')) {
+    const inviteId = path.split('/')[3];
+    const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+    const inv = db.invites.find(i => i.id === inviteId);
+    const targetEmail = inv ? inv.email.toLowerCase() : null;
+
+    db.invites = db.invites.filter(i => i.id !== inviteId && (targetEmail ? i.email.toLowerCase() !== targetEmail : true));
+    saveStaticDb(db);
+
+    if (sb) {
+      try {
+        await sb.from('invites').delete().eq('id', inviteId);
+        if (targetEmail) {
+          await sb.from('invites').delete().eq('workspace_id', activeWsId).eq('email', targetEmail);
+        }
+      } catch (e) {}
+    }
+    return { ok: true };
+  }
+
+  if (method === 'DELETE' && path.startsWith('/api/members/')) {
+    const memberId = path.split('/')[3];
+    const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+    const member = db.members.find(m => m.id === memberId);
+    const targetEmail = member ? member.email.toLowerCase() : null;
+
+    if (member && member.email.toLowerCase() === user.email.toLowerCase()) {
+      throw new Error('You cannot remove yourself from the workspace');
+    }
+
+    db.members = db.members.filter(m => m.id !== memberId && (targetEmail ? m.email.toLowerCase() !== targetEmail : true));
+    saveStaticDb(db);
+
+    if (sb) {
+      try {
+        await sb.from('members').delete().eq('id', memberId);
+        if (targetEmail) {
+          await sb.from('members').delete().eq('workspace_id', activeWsId).eq('email', targetEmail);
+          await sb.from('invites').delete().eq('workspace_id', activeWsId).eq('email', targetEmail);
         }
       } catch (e) {}
     }

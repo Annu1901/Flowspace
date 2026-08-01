@@ -587,10 +587,18 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
   if (method === 'POST' && path.includes('/alert')) {
     const taskId = path.split('/')[3];
     const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
-    const t = db.tasks.find(x => x.id === taskId);
+    let t = db.tasks.find(x => x.id === taskId) || (typeof state !== 'undefined' && state.tasks ? state.tasks.find(x => x.id === taskId) : null);
+    if (!t && sb) {
+      try {
+        const { data: dbT } = await sb.from('tasks').select('*').eq('id', taskId).single();
+        if (dbT) t = { ...dbT, workspaceId: dbT.workspace_id, assigneeId: dbT.assignee_id, createdBy: dbT.created_by, dueDate: dbT.due_date, comments: dbT.comments || [], attachments: dbT.attachments || [] };
+      } catch (e) {}
+    }
+
     if (t) {
       const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
-      const assigneeMem = db.members.find(m => m.id === t.assigneeId);
+      const membersList = (typeof state !== 'undefined' && state.members) ? state.members : db.members;
+      const assigneeMem = membersList ? membersList.find(m => m.id === t.assigneeId) : null;
       const targetEmail = assigneeMem && assigneeMem.email ? assigneeMem.email.toLowerCase() : (user ? user.email.toLowerCase() : '');
 
       const notifText = `⏰ Deadline Reminder: Task "${t.title}" is due soon (${date(t.dueDate)})!`;
@@ -598,7 +606,7 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       if (!db.notifications) db.notifications = [];
       db.notifications.unshift(notifObj);
 
-      const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'sent deadline reminder for', task: t.title, at: new Date().toISOString() };
+      const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'sent deadline reminder for task', task: t.title, at: new Date().toISOString() };
       if (!db.activity) db.activity = [];
       db.activity.unshift(actEntry);
 
@@ -608,7 +616,7 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
           if (targetEmail) {
             await sb.from('notifications').insert([{ workspace_id: activeWsId, text: notifText, target_email: targetEmail, read: false }]);
           }
-          await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'sent deadline reminder for', task: t.title }]);
+          await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'sent deadline reminder for task', task: t.title }]);
         } catch (e) {}
       }
     }
@@ -618,7 +626,14 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
   if (method === 'POST' && path.includes('/comments')) {
     const taskId = path.split('/')[3];
     const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
-    const t = db.tasks.find(x => x.id === taskId);
+    let t = db.tasks.find(x => x.id === taskId) || (typeof state !== 'undefined' && state.tasks ? state.tasks.find(x => x.id === taskId) : null);
+    if (!t && sb) {
+      try {
+        const { data: dbT } = await sb.from('tasks').select('*').eq('id', taskId).single();
+        if (dbT) t = { ...dbT, workspaceId: dbT.workspace_id, assigneeId: dbT.assignee_id, createdBy: dbT.created_by, dueDate: dbT.due_date, comments: dbT.comments || [], attachments: dbT.attachments || [] };
+      } catch (e) {}
+    }
+
     if (t) {
       if (!t.comments) t.comments = [];
       const newComment = {
@@ -2176,10 +2191,27 @@ function openTask(id) {
   if (!isViewer) {
     if ($('#comment-form')) $('#comment-form').onsubmit = async e => {
       e.preventDefault();
-      await api(`/api/tasks/${t.id}/comments`, { method: 'POST', body: JSON.stringify({ text: new FormData(e.target).get('text') }) });
-      await refresh();
-      openTask(id);
-      toast('Comment added');
+      const textarea = e.target.querySelector('textarea');
+      const text = textarea ? textarea.value.trim() : '';
+      if (!text) return toast('Please enter a comment before submitting.');
+
+      const submitBtn = e.target.querySelector('button.primary');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Posting...';
+      }
+      try {
+        await api(`/api/tasks/${t.id}/comments`, { method: 'POST', body: JSON.stringify({ text }) });
+        await refresh();
+        openTask(id);
+        toast('Comment added successfully!');
+      } catch (err) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Add comment';
+        }
+        toast(err.message || 'Failed to post comment');
+      }
     };
   }
 }

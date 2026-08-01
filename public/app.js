@@ -1,3 +1,7 @@
+// DOM Helper utilities
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+
 // Theme Initialization & Preferences
 (function() {
   const currentTheme = localStorage.getItem('flowspace_theme') || 'dark';

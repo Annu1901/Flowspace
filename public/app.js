@@ -2542,38 +2542,42 @@ function animateDonut() {
 }
 
 function connectLive() {
+  if (window.location.hostname.includes('netlify') || window.location.protocol === 'file:') return;
   if (liveSource) {
     try { liveSource.close(); } catch(e) {}
+    liveSource = null;
   }
-  liveSource = new EventSource('/api/live');
-  liveSource.onmessage = async (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      if (data.type === 'state') {
-        await refresh();
-        if (activeTask && $('#modal-backdrop').classList.contains('show') && $('.task-detail') !== null) {
-          const updatedTask = state.tasks.find(t => t.id === activeTask.id);
-          if (updatedTask) {
-            const commentTextarea = $('#comment-form textarea');
-            const commentFocused = commentTextarea && document.activeElement === commentTextarea;
-            let currentCommentText = commentTextarea ? commentTextarea.value : '';
-            openTask(updatedTask.id);
-            const newCommentTextarea = $('#comment-form textarea');
-            if (newCommentTextarea) {
-              newCommentTextarea.value = currentCommentText;
-              if (commentFocused) newCommentTextarea.focus();
+  try {
+    liveSource = new EventSource('/api/live');
+    liveSource.onmessage = async (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'state') {
+          await refresh();
+          if (activeTask && $('#modal-backdrop').classList.contains('show') && $('.task-detail') !== null) {
+            const updatedTask = state.tasks.find(t => t.id === activeTask.id);
+            if (updatedTask) {
+              const commentTextarea = $('#comment-form textarea');
+              const commentFocused = commentTextarea && document.activeElement === commentTextarea;
+              let currentCommentText = commentTextarea ? commentTextarea.value : '';
+              openTask(updatedTask.id);
+              const newCommentTextarea = $('#comment-form textarea');
+              if (newCommentTextarea) {
+                newCommentTextarea.value = currentCommentText;
+                if (commentFocused) newCommentTextarea.focus();
+              }
             }
           }
         }
+      } catch (e) {
+        console.error('Failed to parse live state:', e);
       }
-    } catch (e) {
-      console.error('Failed to parse live state:', e);
-    }
-  };
-  liveSource.onerror = () => {
-    liveSource.close();
-    setTimeout(connectLive, 3000);
-  };
+    };
+    liveSource.onerror = () => {
+      try { liveSource.close(); } catch(e) {}
+      liveSource = null;
+    };
+  } catch (e) {}
 }
 
 async function init() {
@@ -2595,24 +2599,29 @@ async function init() {
     await refresh();
     connectLive();
     
-    // Live auto-refresh polling every 2.5 seconds for seamless real-time multi-device sync
+    // Live auto-refresh polling with non-overlapping execution lock
+    let isPolling = false;
     setInterval(async () => {
       const u = localStorage.getItem('flowspace_user');
-      if (u && !document.hidden && !$('#modal-backdrop').classList.contains('show') && !$('#auth-backdrop').classList.contains('show')) {
+      if (u && !document.hidden && !isPolling && !$('#modal-backdrop').classList.contains('show') && !$('#auth-backdrop').classList.contains('show')) {
+        isPolling = true;
         try {
           const fresh = await api('/api/state');
-          if (JSON.stringify(fresh.members) !== JSON.stringify(state.members) ||
+          if (fresh && (
+              JSON.stringify(fresh.members) !== JSON.stringify(state.members) ||
               JSON.stringify(fresh.invites) !== JSON.stringify(state.invites) ||
               JSON.stringify(fresh.tasks) !== JSON.stringify(state.tasks) ||
               JSON.stringify(fresh.activity) !== JSON.stringify(state.activity) ||
               JSON.stringify(fresh.notifications) !== JSON.stringify(state.notifications) ||
-              JSON.stringify(fresh.receivedInvites) !== JSON.stringify(state.receivedInvites)) {
+              JSON.stringify(fresh.receivedInvites) !== JSON.stringify(state.receivedInvites))) {
             state = fresh;
             render();
           }
-        } catch (e) {}
+        } catch (e) {} finally {
+          isPolling = false;
+        }
       }
-    }, 2500);
+    }, 4500);
     // Entrance animations for authenticated view
     gsap.fromTo('.sidebar', 
       { x: -270 },

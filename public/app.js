@@ -365,6 +365,65 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     return { ok: true };
   }
 
+  // 3.5 Projects
+  if (method === 'POST' && path === '/api/projects') {
+    const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+    const proj = {
+      id: 'proj-' + Date.now(),
+      workspaceId: activeWsId,
+      name: body.name.trim(),
+      description: body.description || '',
+      createdAt: new Date().toISOString()
+    };
+    if (!db.projects) db.projects = [];
+    db.projects.push(proj);
+
+    const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
+    const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'created project', task: proj.name, at: new Date().toISOString() };
+    if (!db.activity) db.activity = [];
+    db.activity.unshift(actEntry);
+    saveStaticDb(db);
+
+    if (sb) {
+      try {
+        const { data: newDbProj } = await sb.from('projects').insert([{
+          workspace_id: activeWsId,
+          name: proj.name,
+          description: proj.description
+        }]).select();
+        await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'created project', task: proj.name }]);
+        if (newDbProj && newDbProj[0]) {
+          proj.id = newDbProj[0].id;
+        }
+      } catch (e) {}
+    }
+    return proj;
+  }
+
+  if (method === 'PATCH' && path.startsWith('/api/projects/')) {
+    const projId = path.split('/')[3];
+    const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+    const p = db.projects ? db.projects.find(x => x.id === projId) : null;
+    if (p) {
+      if (body.name) p.name = body.name.trim();
+      if (body.description !== undefined) p.description = body.description;
+      
+      const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
+      const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'renamed project', task: p.name, at: new Date().toISOString() };
+      if (!db.activity) db.activity = [];
+      db.activity.unshift(actEntry);
+      saveStaticDb(db);
+
+      if (sb) {
+        try {
+          await sb.from('projects').update({ name: p.name, description: p.description }).eq('id', projId);
+          await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'renamed project', task: p.name }]);
+        } catch (e) {}
+      }
+    }
+    return p;
+  }
+
   // 4. Tasks
   if (method === 'POST' && path === '/api/tasks') {
     const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
@@ -1089,6 +1148,11 @@ function openProjectModal(p = null) {
 
   $('#project-modal-form').onsubmit = async e => {
     e.preventDefault();
+    const submitBtn = e.target.querySelector('button.primary');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+    }
     const payload = Object.fromEntries(new FormData(e.target));
     try {
       if (isEdit) {
@@ -1096,13 +1160,19 @@ function openProjectModal(p = null) {
         toast('Project updated');
       } else {
         const newP = await api('/api/projects', { method: 'POST', body: JSON.stringify(payload) });
-        currentSelectedProjectId = newP.id;
-        localStorage.setItem('flowspace_active_project', currentSelectedProjectId);
-        toast('Project created');
+        if (newP && newP.id) {
+          currentSelectedProjectId = newP.id;
+          localStorage.setItem('flowspace_active_project', currentSelectedProjectId);
+        }
+        toast('Project created successfully');
       }
       await refresh();
       close();
     } catch (err) {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = isEdit ? 'Save changes' : 'Create project';
+      }
       toast(err.message || 'Operation failed');
     }
   };

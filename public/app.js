@@ -906,6 +906,75 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     return { id: user.id, name: newName, email: newEmail };
   }
 
+  // 6. Workspace endpoints
+  if (method === 'POST' && path.startsWith('/api/workspaces/') && path.endsWith('/select')) {
+    const wsId = path.split('/')[3];
+    localStorage.setItem('flowspace_active_workspace', wsId);
+    state.activeWorkspaceId = wsId;
+    return { ok: true, activeWorkspaceId: wsId };
+  }
+
+  if (method === 'POST' && path === '/api/workspaces') {
+    const activeWsId = localStorage.getItem('flowspace_active_workspace') || '';
+    const newWsName = body.name ? body.name.trim() : 'New Workspace';
+    const newWsDesc = body.description ? body.description.trim() : '';
+
+    let createdWs = { id: 'ws-' + Date.now(), name: newWsName, description: newWsDesc };
+    db.workspaces.push(createdWs);
+
+    const newMem = {
+      id: 'm-' + Date.now(),
+      workspaceId: createdWs.id,
+      name: user ? user.name : 'Admin',
+      email: user ? user.email.toLowerCase() : '',
+      initials: user ? user.name.slice(0, 2).toUpperCase() : 'AD',
+      color: '#7c3aed',
+      role: 'Workspace admin'
+    };
+    db.members.push(newMem);
+    saveStaticDb(db);
+
+    if (sb) {
+      try {
+        const { data: wsRes } = await sb.from('workspaces').insert([{ name: newWsName, description: newWsDesc }]).select();
+        if (wsRes && wsRes[0]) {
+          createdWs = wsRes[0];
+          await sb.from('members').insert([{
+            workspace_id: createdWs.id,
+            name: user ? user.name : 'Admin',
+            email: user ? user.email.toLowerCase() : '',
+            initials: user ? (user.name || '').slice(0, 2).toUpperCase() : 'AD',
+            color: '#7c3aed',
+            role: 'Workspace admin'
+          }]);
+        }
+      } catch (e) {}
+    }
+
+    localStorage.setItem('flowspace_active_workspace', createdWs.id);
+    state.activeWorkspaceId = createdWs.id;
+    return createdWs;
+  }
+
+  if (method === 'PATCH' && path.startsWith('/api/workspaces/')) {
+    const wsId = path.split('/')[3];
+    const ws = db.workspaces.find(w => w.id === wsId);
+    if (ws) {
+      if (body.name) ws.name = body.name.trim();
+      if (body.description) ws.description = body.description.trim();
+      saveStaticDb(db);
+    }
+    if (sb) {
+      try {
+        const updates = {};
+        if (body.name) updates.name = body.name.trim();
+        if (body.description) updates.description = body.description.trim();
+        await sb.from('workspaces').update(updates).eq('id', wsId);
+      } catch (e) {}
+    }
+    return { ok: true };
+  }
+
   return { ok: true };
 }
 
@@ -2780,6 +2849,8 @@ async function init() {
   // Logout wiring
   $('#logout-btn').onclick = () => {
     localStorage.removeItem('flowspace_user');
+    localStorage.removeItem('flowspace_active_workspace');
+    localStorage.removeItem('flowspace_active_project');
     if (liveSource) {
       try { liveSource.close(); } catch(e) {}
       liveSource = null;

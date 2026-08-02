@@ -1871,7 +1871,15 @@ h1 span {
   text-decoration: underline;
 }
 
-/* Responsive Overrides */
+/* ==========================================================================
+   RESPONSIVE DESIGN OVERRIDES (Mobile, Tablet, Laptop, Desktop)
+   ========================================================================== */
+
+/* Mobile Bottom Navigation Bar (Hidden by default on Desktop) */
+.mobile-bottom-nav {
+  display: none;
+}
+
 @media(max-width: 1080px) {
   .stat-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -1883,76 +1891,196 @@ h1 span {
     grid-template-columns: 1fr;
   }
   .sidebar {
-    width: 230px;
+    width: 220px;
   }
   main {
-    margin-left: 230px;
-    width: calc(100% - 230px);
-    padding: 30px;
+    margin-left: 220px;
+    width: calc(100% - 220px);
+    padding: 24px;
   }
 }
 
 @media(max-width: 768px) {
   .sidebar {
-    display: none;
+    display: none !important;
   }
   main {
-    margin: 0;
-    width: 100%;
-    padding: 24px 20px;
+    margin: 0 !important;
+    width: 100% !important;
+    padding: 16px 16px 84px 16px !important; /* Space for bottom nav */
   }
+
+  /* Fixed Mobile Bottom Navigation Bar */
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-top: 1px solid var(--glass-border);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+    z-index: 999;
+    justify-content: space-around;
+    align-items: center;
+    padding: 4px 8px;
+  }
+
+  .mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    flex: 1;
+    padding: 6px 0;
+    transition: all 0.2s ease;
+  }
+
+  .mobile-nav-item svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    transition: transform 0.2s ease;
+  }
+
+  .mobile-nav-item.active {
+    color: var(--primary);
+    font-weight: 700;
+  }
+
+  .mobile-nav-item.active svg {
+    transform: translateY(-2px);
+  }
+
+  /* Header adjustments for Mobile */
   header {
+    flex-direction: column;
     align-items: flex-start;
-    gap: 18px;
+    gap: 12px;
+    margin-bottom: 20px;
   }
-  .header-actions .secondary {
-    display: none;
+
+  header .header-actions {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
   }
+
   h1 {
-    font-size: 26px;
+    font-size: 22px;
   }
+
+  .eyebrow {
+    font-size: 11px;
+  }
+
+  /* Hero Section Responsive */
   .hero {
-    padding: 28px;
+    padding: 20px;
     min-height: auto;
+    border-radius: var(--radius-md);
   }
+
+  .hero h2 {
+    font-size: 22px;
+  }
+
   .orbit {
     display: none;
   }
+
+  /* Grids and Cards */
   .stat-grid {
-    gap: 12px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
   }
+
   .stat-grid article {
-    padding: 18px;
+    padding: 14px;
   }
+
+  .stat-grid strong {
+    font-size: 22px;
+  }
+
   .board {
     grid-template-columns: 1fr;
+    gap: 16px;
   }
+
   .form-grid {
     grid-template-columns: 1fr;
   }
+
   .field.full {
     grid-column: auto;
   }
+
   .filters {
-    margin-top: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
   }
+
+  .filters select {
+    flex: 1;
+    min-width: 130px;
+  }
+
   .section-heading {
-    display: block;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
-  .section-heading > button {
-    margin-top: 16px;
-  }
+
   .account-grid {
     grid-template-columns: 1fr;
   }
+
   .features-grid {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
+  }
+
+  .landing-hero h1 {
+    font-size: 32px;
+  }
+
+  .landing-shell {
+    padding: 0 16px;
+  }
+
+  /* Modals on Mobile */
+  .modal, .auth-modal {
+    max-width: 94vw !important;
+    width: 94vw !important;
+    padding: 20px !important;
+    border-radius: var(--radius-lg) !important;
+  }
+
+  .notification-popover {
+    width: calc(100vw - 32px);
+    right: -10px;
+  }
+}
+
+@media(max-width: 480px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
   }
   .landing-hero h1 {
-    font-size: 36px;
+    font-size: 26px;
   }
-  .landing-shell {
-    padding: 0 24px;
+  header .header-actions button:not(.icon-button) {
+    padding: 8px 12px;
+    font-size: 12px;
   }
 }

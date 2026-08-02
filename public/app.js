@@ -2689,7 +2689,7 @@ function setView(v) {
     onComplete: () => {
       currentActive.classList.remove('active');
       targetView.classList.add('active');
-      $$('.nav').forEach(x => x.classList.toggle('active', x.dataset.view === v));
+      $$('.nav, .mobile-nav-item').forEach(x => x.classList.toggle('active', x.dataset.view === v));
       updateHeaderText(v);
       const activeNavLink = $(`.nav[data-view="${v}"]`);
       if (activeNavLink) updateNavIndicator(activeNavLink);
@@ -2930,8 +2930,8 @@ async function init() {
   $('#landing-signup-btn').onclick = showSignup;
   $('#hero-get-started-btn').onclick = showSignup;
 
-  // Sidebar controls
-  $$('.nav').forEach(n => n.onclick = () => setView(n.dataset.view));
+  // Sidebar & Mobile Nav controls
+  $$('.nav, .mobile-nav-item').forEach(n => n.onclick = () => setView(n.dataset.view));
   $$('[data-go]').forEach(b => b.onclick = () => setView(b.dataset.go));
   $('.brand').onclick = () => {
     const user = localStorage.getItem('flowspace_user');

@@ -404,6 +404,28 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     return { ok: true };
   }
 
+  if (method === 'PATCH' && path.startsWith('/api/workspaces/')) {
+    const wsId = path.split('/')[3];
+    let w = db.workspaces.find(x => x.id === wsId);
+    if (!w) {
+      w = { id: wsId, name: body.name?.trim() || 'Workspace', description: body.description || '' };
+      db.workspaces.push(w);
+    }
+    if (body.name) w.name = body.name.trim();
+    if (body.description !== undefined) w.description = body.description.trim();
+    saveStaticDb(db);
+
+    if (sb) {
+      try {
+        const updateObj = {};
+        if (body.name) updateObj.name = body.name.trim();
+        if (body.description !== undefined) updateObj.description = body.description.trim();
+        await sb.from('workspaces').update(updateObj).eq('id', wsId);
+      } catch (e) {}
+    }
+    return w;
+  }
+
   // 3.5 Projects
   if (method === 'POST' && path === '/api/projects') {
     const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';

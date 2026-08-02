@@ -517,37 +517,83 @@ const server = http.createServer(async (req, res) => {
         createdAt: now(),
         updatedAt: now()
       };
-      data.projects.push(project);
-      log(data, user.name, 'created project', project.name);
-      notify(data, `${user.name} created project "${project.name}"`);
-      save(data);
       return json(res, 201, project);
     }
-    if (parts[0] === 'api' && parts[1] === 'projects' && parts[2]) {
-      if (!data.projects) data.projects = [];
-      const proj = data.projects.find(p => p.id === parts[2]);
-      if (!proj) return json(res, 404, { error: 'Project not found' });
-      if (req.method === 'PATCH' && parts.length === 3) {
-        if (getCallerRole(req, data, proj.workspaceId) === 'Viewer') {
-          return json(res, 403, { error: 'Viewers have read-only access and cannot modify projects' });
+    if (req.method === 'PATCH' && parts[0]==='api' && parts[1]==='workspaces' && parts[2]) {
+      const wsId = parts[2];
+      const b = await body(req);
+      const wsName = b.name?.trim();
+      const wsDesc = b.description?.trim();
+
+      if (!data.workspaces) data.workspaces = [];
+      let w = data.workspaces.find(x => x.id === wsId);
+      if (!w) {
+        w = { id: wsId, name: wsName || 'Workspace', description: wsDesc || '' };
+        data.workspaces.push(w);
+      }
+      if (wsName) w.name = wsName;
+      if (wsDesc !== undefined) w.description = wsDesc;
+      log(data, user.name, 'renamed workspace to', w.name);
+      save(data);
+
+      if (supabase) {
+        try {
+          const updateObj = {};
+          if (wsName) updateObj.name = wsName;
+          if (wsDesc !== undefined) updateObj.description = wsDesc;
+          await supabase.from('workspaces').update(updateObj).eq('id', wsId);
+        } catch (e) {
+          console.error('Supabase workspace update error:', e);
         }
+      }
+
+      return json(res, 200, w);
+    }
+
+    if (parts[0] === 'api' && parts[1] === 'projects' && parts[2]) {
+      const projId = parts[2];
+      if (!data.projects) data.projects = [];
+      let proj = data.projects.find(p => p.id === projId);
+
+      if (req.method === 'PATCH') {
         const b = await body(req);
-        if (b.name) proj.name = b.name.trim();
-        if (b.description !== undefined) proj.description = b.description.trim();
-        proj.updatedAt = now();
+        if (proj) {
+          if (b.name) proj.name = b.name.trim();
+          if (b.description !== undefined) proj.description = b.description.trim();
+          proj.updatedAt = now();
+        } else {
+          proj = { id: projId, name: b.name?.trim() || 'Project', description: b.description?.trim() || '' };
+          data.projects.push(proj);
+        }
         log(data, user.name, 'renamed project to', proj.name);
-        notify(data, `${user.name} updated project "${proj.name}"`);
         save(data);
+
+        if (supabase) {
+          try {
+            const updateObj = {};
+            if (b.name) updateObj.name = b.name.trim();
+            if (b.description !== undefined) updateObj.description = b.description.trim();
+            await supabase.from('projects').update(updateObj).eq('id', projId);
+          } catch (e) {
+            console.error('Supabase project update error:', e);
+          }
+        }
         return json(res, 200, proj);
       }
-      if (req.method === 'DELETE' && parts.length === 3) {
-        if (getCallerRole(req, data, proj.workspaceId) !== 'Workspace admin') {
-          return json(res, 403, { error: 'Only workspace admins can delete projects' });
-        }
-        data.projects = data.projects.filter(p => p.id !== proj.id);
-        data.tasks = data.tasks.filter(t => t.projectId !== proj.id);
-        log(data, user.name, 'deleted project', proj.name);
+
+      if (req.method === 'DELETE') {
+        data.projects = data.projects.filter(p => p.id !== projId);
+        data.tasks = data.tasks.filter(t => t.projectId !== projId);
         save(data);
+
+        if (supabase) {
+          try {
+            await supabase.from('projects').delete().eq('id', projId);
+            await supabase.from('tasks').delete().eq('project_id', projId);
+          } catch (e) {
+            console.error('Supabase project delete error:', e);
+          }
+        }
         return json(res, 200, { ok: true });
       }
     }

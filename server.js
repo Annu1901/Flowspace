@@ -393,26 +393,50 @@ const server = http.createServer(async (req, res) => {
 
     // 5. Workspaces
     if (req.method === 'POST' && url.pathname === '/api/workspaces') {
-      const b=await body(req);
-      const workspace={id:id(),name:b.name?.trim()||'Untitled workspace',description:b.description||'',createdAt:now()};
+      const b = await body(req);
+      const wsName = b.name?.trim() || 'Untitled workspace';
+      const wsDesc = b.description?.trim() || '';
+      let workspace = { id: id(), name: wsName, description: wsDesc, createdAt: now() };
       data.workspaces.push(workspace);
-      const userRecord = data.users.find(u => u.id === user.id);
+
+      const userRecord = data.users?.find(u => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
       if (userRecord) {
         userRecord.activeWorkspaceId = workspace.id;
       }
+
       const member = {
         id: id(),
         workspaceId: workspace.id,
         name: user.name,
-        email: user.email,
+        email: user.email.toLowerCase(),
         initials: user.name.split(' ').map(x=>x[0]).join('').toUpperCase().slice(0,2),
         color: '#7c3aed',
         role: 'Workspace admin'
       };
       data.members.push(member);
-      log(data,user.name,'created workspace',workspace.name);
+      log(data, user.name, 'created workspace', workspace.name);
       save(data);
-      return json(res,201,workspace);
+
+      if (supabase) {
+        try {
+          const { data: newWs } = await supabase.from('workspaces').insert([{ name: wsName, description: wsDesc }]).select();
+          if (newWs && newWs[0]) {
+            workspace.id = newWs[0].id;
+            await supabase.from('members').insert([{
+              workspace_id: newWs[0].id,
+              name: user.name,
+              email: user.email.toLowerCase(),
+              initials: user.name.split(' ').map(x=>x[0]).join('').toUpperCase().slice(0,2),
+              color: '#7c3aed',
+              role: 'Workspace admin'
+            }]);
+          }
+        } catch (e) {
+          console.error('Supabase workspace creation error:', e);
+        }
+      }
+
+      return json(res, 201, workspace);
     }
     if (req.method === 'PATCH' && parts[0]==='api' && parts[1]==='workspaces' && parts[2]) {
       if (getCallerRole(req, data, parts[2]) !== 'Workspace admin') return json(res, 403, { error: 'Only workspace admins can modify workspace settings' });

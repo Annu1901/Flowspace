@@ -2534,7 +2534,11 @@ function manageWorkspace() {
   };
   $('#create-workspace').onsubmit = async e => {
     e.preventDefault();
-    await api('/api/workspaces', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(e.target))) });
+    const newWs = await api('/api/workspaces', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(e.target))) });
+    if (newWs && (newWs.id || newWs.workspaceId)) {
+      const newId = newWs.id || newWs.workspaceId;
+      localStorage.setItem('flowspace_active_workspace', newId);
+    }
     await refresh();
     close();
     toast('New workspace created');

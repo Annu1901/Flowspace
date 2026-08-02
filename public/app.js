@@ -805,6 +805,38 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     return { ok: true };
   }
 
+  // 4.8 Notifications
+  if (method === 'PATCH' && path === '/api/notifications/read') {
+    if (db.notifications) {
+      const n = db.notifications.find(x => x.id === body.id);
+      if (n) n.read = true;
+      saveStaticDb(db);
+    }
+    if (sb) {
+      try {
+        await sb.from('notifications').update({ read: true }).eq('id', body.id);
+      } catch (e) {}
+    }
+    return { ok: true };
+  }
+
+  if (method === 'POST' && path === '/api/notifications/read-all') {
+    if (db.notifications) {
+      db.notifications.forEach(n => n.read = true);
+      saveStaticDb(db);
+    }
+    if (sb) {
+      try {
+        const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+        const userEmail = user ? user.email.toLowerCase() : '';
+        await sb.from('notifications')
+          .update({ read: true })
+          .or(`workspace_id.eq.${activeWsId},target_email.eq.${userEmail}`);
+      } catch (e) {}
+    }
+    return { ok: true };
+  }
+
   // 5. Invites
   if (method === 'POST' && path === '/api/invites') {
     const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
@@ -1227,6 +1259,21 @@ function renderNotifications() {
     unreadBadge.textContent = `${unreadCount} unread`;
   }
 
+  if ($('#mark-all-read')) {
+    $('#mark-all-read').onclick = async () => {
+      try {
+        await api('/api/notifications/read-all', { method: 'POST' });
+        if (state && state.notifications) {
+          state.notifications.forEach(n => n.read = true);
+        }
+        renderNotifications();
+        toast('All notifications marked as read');
+      } catch (e) {
+        toast('Failed to mark notifications as read');
+      }
+    };
+  }
+
   const list = $('#notify-list');
   if (!list) return;
 
@@ -1256,8 +1303,12 @@ function renderNotifications() {
       const id = item.dataset.id;
       const target = notifications.find(n => n.id === id);
       if (target && !target.read) {
-        await api('/api/notifications/read', { method: 'PATCH', body: JSON.stringify({ id }) });
-        await refresh();
+        target.read = true;
+        renderNotifications();
+        try {
+          await api('/api/notifications/read', { method: 'PATCH', body: JSON.stringify({ id }) });
+          await refresh();
+        } catch (err) {}
       }
     };
   });
@@ -1275,58 +1326,6 @@ function canUserModifyTask(t) {
   const role = getCurrentRole();
   if (role === 'Viewer') return false;
   return true;
-}
-
-function checkPendingInvitationsModal() {
-  if (!state || !state.receivedInvites || state.receivedInvites.length === 0) return;
-  const pendingInvs = state.receivedInvites.filter(i => i.status === 'Pending');
-  if (pendingInvs.length === 0) return;
-
-  const firstInv = pendingInvs[0];
-  const modalKey = 'flowspace_shown_invite_' + firstInv.id;
-  if (sessionStorage.getItem(modalKey)) return;
-  sessionStorage.setItem(modalKey, 'true');
-
-  modal(`
-    <div class="modal" style="max-width:440px;text-align:center">
-      <div style="font-size:36px;margin-bottom:8px">📩</div>
-      <h2 style="font-size:20px;margin-bottom:6px">Workspace Invitation Received!</h2>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:20px">
-        You have been invited to join <b>"${esc(firstInv.workspaceName)}"</b> as a <b>${esc(firstInv.role)}</b>.
-      </p>
-      <div style="display:flex;gap:10px;justify-content:center">
-        <button type="button" id="modal-decline-invite-btn" class="secondary" style="padding:10px 18px">Decline</button>
-        <button type="button" id="modal-accept-invite-btn" class="primary" style="padding:10px 18px">Join Workspace →</button>
-      </div>
-    </div>
-  `);
-
-  if ($('#modal-accept-invite-btn')) {
-    $('#modal-accept-invite-btn').onclick = async () => {
-      try {
-        await api('/api/invites/join', { method: 'POST', body: JSON.stringify({ id: firstInv.id }) });
-        toast(`Joined ${firstInv.workspaceName}!`);
-        await refresh();
-        close();
-        setView('overview');
-      } catch (e) {
-        toast(e.message || 'Failed to join workspace');
-      }
-    };
-  }
-
-  if ($('#modal-decline-invite-btn')) {
-    $('#modal-decline-invite-btn').onclick = async () => {
-      try {
-        await api('/api/invites/decline', { method: 'POST', body: JSON.stringify({ id: firstInv.id }) });
-        toast('Invitation declined');
-        await refresh();
-        close();
-      } catch (e) {
-        toast(e.message || 'Failed to decline invitation');
-      }
-    };
-  }
 }
 
 function render() {
@@ -1347,7 +1346,6 @@ function render() {
   renderAccountView();
   renderNotifications();
   timeUI();
-  checkPendingInvitationsModal();
 }
 
 function renderWorkspace() {

@@ -653,6 +653,55 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // 5.8 Notifications API
+    if (req.method === 'PATCH' && url.pathname === '/api/notifications/read') {
+      const b = await body(req);
+      const notifId = b.id;
+      if (!notifId) return json(res, 400, { error: 'Notification ID is required' });
+
+      if (data.notifications) {
+        const n = data.notifications.find(x => x.id === notifId);
+        if (n) n.read = true;
+        save(data);
+      }
+
+      if (supabase) {
+        try {
+          await supabase.from('notifications').update({ read: true }).eq('id', notifId);
+        } catch (e) {
+          console.error('Supabase notif read error:', e);
+        }
+      }
+
+      return json(res, 200, { ok: true });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/notifications/read-all') {
+      const userEmail = user.email.toLowerCase();
+      const userRecord = data.users?.find(u => u.id === user.id);
+      const activeWsId = userRecord?.activeWorkspaceId || 'workspace-1';
+
+      if (data.notifications) {
+        data.notifications.forEach(n => {
+          const target = (n.targetEmail || n.target_email || '').toLowerCase();
+          if (!target || target === userEmail) n.read = true;
+        });
+        save(data);
+      }
+
+      if (supabase) {
+        try {
+          await supabase.from('notifications')
+            .update({ read: true })
+            .or(`workspace_id.eq.${activeWsId},target_email.eq.${userEmail}`);
+        } catch (e) {
+          console.error('Supabase notif read-all error:', e);
+        }
+      }
+
+      return json(res, 200, { ok: true });
+    }
+
     // 6. Tasks
     if (req.method === 'POST' && url.pathname === '/api/tasks') {
       if (getCallerRole(req, data) === 'Viewer') return json(res, 403, { error: 'Viewers have read-only access and cannot create tasks' });

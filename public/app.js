@@ -186,14 +186,18 @@ async function fetchSupabaseState(user) {
       }
     }
 
-    // 5. Fetch Activity & Notifications for active workspace
+    // 5. Fetch Activity & Notifications for active workspace and target user
     let workspaceActivity = [], workspaceNotifications = [];
     if (activeId) {
       try {
         const { data: actData } = await sb.from('activity').select('*').eq('workspace_id', activeId).order('at', { ascending: false });
         workspaceActivity = (actData || []).map(a => ({ ...a, workspaceId: a.workspace_id || a.workspaceId }));
 
-        const { data: notifData } = await sb.from('notifications').select('*').eq('workspace_id', activeId).order('at', { ascending: false });
+        const { data: notifData } = await sb.from('notifications')
+          .select('*')
+          .or(`workspace_id.eq.${activeId},target_email.eq.${userEmail}`)
+          .order('at', { ascending: false });
+
         workspaceNotifications = (notifData || [])
           .filter(n => {
             const target = (n.target_email || n.targetEmail || '').toLowerCase();
@@ -804,29 +808,56 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
   // 5. Invites
   if (method === 'POST' && path === '/api/invites') {
     const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
-    const ws = db.workspaces.find(w => w.id === activeWsId);
+    const ws = (typeof state !== 'undefined' && state.workspace) ? state.workspace : (db.workspaces.find(w => w.id === activeWsId) || { name: 'Workspace' });
+    const invitedEmail = body.email.trim().toLowerCase();
+    const callerName = user ? (user.name || user.email.split('@')[0]) : 'A teammate';
+    const notifText = `📩 You were invited by ${callerName} to join workspace "${ws.name}" as ${body.role || 'Workspace member'}.`;
+
     const invite = {
       id: 'inv-' + Date.now(),
       workspaceId: activeWsId,
-      workspaceName: ws ? ws.name : 'Workspace',
-      email: body.email.trim().toLowerCase(),
-      name: body.name || body.email.split('@')[0],
+      workspaceName: ws.name,
+      email: invitedEmail,
+      name: body.name || invitedEmail.split('@')[0],
       role: body.role || 'Workspace member',
       status: 'Pending',
       createdAt: new Date().toISOString()
     };
     db.invites.push(invite);
+
+    const notifObj = { id: 'n-' + Date.now(), workspaceId: activeWsId, text: notifText, targetEmail: invitedEmail, read: false, at: new Date().toISOString() };
+    if (!db.notifications) db.notifications = [];
+    db.notifications.unshift(notifObj);
+
+    const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: callerName, action: 'invited member', task: invitedEmail, at: new Date().toISOString() };
+    if (!db.activity) db.activity = [];
+    db.activity.unshift(actEntry);
+
     saveStaticDb(db);
 
     if (sb) {
       try {
         await sb.from('invites').insert([{
           workspace_id: activeWsId,
-          email: body.email.trim().toLowerCase(),
+          email: invitedEmail,
           role: body.role || 'Workspace member',
           status: 'Pending'
         }]);
-      } catch (e) {}
+        await sb.from('notifications').insert([{
+          workspace_id: activeWsId,
+          text: notifText,
+          target_email: invitedEmail,
+          read: false
+        }]);
+        await sb.from('activity').insert([{
+          workspace_id: activeWsId,
+          actor: callerName,
+          action: 'invited member',
+          task: invitedEmail
+        }]);
+      } catch (e) {
+        console.error('Supabase invite insert error:', e);
+      }
     }
 
     return invite;
@@ -846,15 +877,20 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
         await sb.from('invites').update({ status: 'Accepted' }).eq('id', body.id);
         const { data: targetInv } = await sb.from('invites').select('*').eq('id', body.id).single();
         if (targetInv) {
+          const wsId = targetInv.workspace_id;
           await sb.from('members').insert([{
-            workspace_id: targetInv.workspace_id,
+            workspace_id: wsId,
             name: user.name,
             email: user.email.toLowerCase(),
             initials: user.name.slice(0,2).toUpperCase(),
             color: '#0ea5e9',
             role: targetInv.role || 'Workspace member'
           }]);
-          localStorage.setItem('flowspace_active_workspace', targetInv.workspace_id);
+          localStorage.setItem('flowspace_active_workspace', wsId);
+
+          const joinNotif = `🎉 ${user.name} accepted the invitation and joined the workspace!`;
+          await sb.from('notifications').insert([{ workspace_id: wsId, text: joinNotif, read: false }]);
+          await sb.from('activity').insert([{ workspace_id: wsId, actor: user.name, action: 'joined workspace', task: '' }]);
         }
       } catch (e) {}
     }

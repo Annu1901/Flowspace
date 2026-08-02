@@ -464,22 +464,34 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
   if (method === 'PATCH' && path.startsWith('/api/projects/')) {
     const projId = path.split('/')[3];
     const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
-    const p = db.projects ? db.projects.find(x => x.id === projId) : null;
-    if (p) {
-      if (body.name) p.name = body.name.trim();
-      if (body.description !== undefined) p.description = body.description;
-      
-      const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
-      const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'renamed project', task: p.name, at: new Date().toISOString() };
-      if (!db.activity) db.activity = [];
-      db.activity.unshift(actEntry);
-      saveStaticDb(db);
+    if (!db.projects) db.projects = [];
+    let p = db.projects.find(x => x.id === projId);
+    if (!p && typeof state !== 'undefined' && state.projects) {
+      p = state.projects.find(x => x.id === projId);
+      if (p) db.projects.push(p);
+    }
+    if (!p) {
+      p = { id: projId, workspaceId: activeWsId, name: body.name?.trim() || 'Project', description: body.description || '' };
+      db.projects.push(p);
+    }
+    if (body.name) p.name = body.name.trim();
+    if (body.description !== undefined) p.description = body.description;
+    
+    const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
+    const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'renamed project', task: p.name, at: new Date().toISOString() };
+    if (!db.activity) db.activity = [];
+    db.activity.unshift(actEntry);
+    saveStaticDb(db);
 
-      if (sb) {
-        try {
-          await sb.from('projects').update({ name: p.name, description: p.description }).eq('id', projId);
-          await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'renamed project', task: p.name }]);
-        } catch (e) {}
+    if (sb) {
+      try {
+        const updateData = {};
+        if (body.name) updateData.name = body.name.trim();
+        if (body.description !== undefined) updateData.description = body.description;
+        await sb.from('projects').update(updateData).eq('id', projId);
+        await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'renamed project', task: p.name }]);
+      } catch (e) {
+        console.error('Supabase project patch error:', e);
       }
     }
     return p;
@@ -488,23 +500,23 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
   if (method === 'DELETE' && path.startsWith('/api/projects/')) {
     const projId = path.split('/')[3];
     const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
-    const p = db.projects ? db.projects.find(x => x.id === projId) : null;
-    if (p) {
-      if (db.projects) db.projects = db.projects.filter(x => x.id !== projId);
-      if (db.tasks) db.tasks = db.tasks.filter(t => t.projectId !== projId);
-      const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
-      const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'deleted project', task: p.name, at: new Date().toISOString() };
-      if (!db.activity) db.activity = [];
-      db.activity.unshift(actEntry);
-      saveStaticDb(db);
+    if (db.projects) db.projects = db.projects.filter(x => x.id !== projId);
+    if (db.tasks) db.tasks = db.tasks.filter(t => t.projectId !== projId);
+    if (typeof state !== 'undefined') {
+      if (state.projects) state.projects = state.projects.filter(x => x.id !== projId);
+      if (state.tasks) state.tasks = state.tasks.filter(t => t.projectId !== projId);
+    }
+    const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
+    const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'deleted project', task: 'Project', at: new Date().toISOString() };
+    if (!db.activity) db.activity = [];
+    db.activity.unshift(actEntry);
+    saveStaticDb(db);
 
-      if (sb) {
-        try {
-          await sb.from('projects').delete().eq('id', projId);
-          await sb.from('tasks').delete().eq('project_id', projId);
-          await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'deleted project', task: p.name }]);
-        } catch (e) {}
-      }
+    if (sb) {
+      try {
+        await sb.from('projects').delete().eq('id', projId);
+        await sb.from('tasks').delete().eq('project_id', projId);
+      } catch (e) {}
     }
     return { ok: true };
   }

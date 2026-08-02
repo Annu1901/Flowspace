@@ -504,8 +504,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/projects') {
       const userRecord = data.users.find(u => u.id === user.id);
       const activeWsId = userRecord?.activeWorkspaceId || 'workspace-1';
-      if (getCallerRole(req, data, activeWsId) !== 'Workspace admin') {
-        return json(res, 403, { error: 'Only workspace admins can create projects' });
+      if (getCallerRole(req, data, activeWsId) === 'Viewer') {
+        return json(res, 403, { error: 'Viewers have read-only access and cannot create projects' });
       }
       const b = await body(req);
       if (!data.projects) data.projects = [];
@@ -528,8 +528,8 @@ const server = http.createServer(async (req, res) => {
       const proj = data.projects.find(p => p.id === parts[2]);
       if (!proj) return json(res, 404, { error: 'Project not found' });
       if (req.method === 'PATCH' && parts.length === 3) {
-        if (getCallerRole(req, data, proj.workspaceId) !== 'Workspace admin') {
-          return json(res, 403, { error: 'Only workspace admins can rename projects' });
+        if (getCallerRole(req, data, proj.workspaceId) === 'Viewer') {
+          return json(res, 403, { error: 'Viewers have read-only access and cannot modify projects' });
         }
         const b = await body(req);
         if (b.name) proj.name = b.name.trim();

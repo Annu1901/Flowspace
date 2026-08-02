@@ -1304,17 +1304,17 @@ function renderProjectsHeader() {
   }
 
   const role = getCurrentRole();
-  const isAdmin = role === 'Workspace admin';
+  const isViewer = role === 'Viewer';
 
   const createBtn = $('#create-project-btn');
   if (createBtn) {
-    createBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+    createBtn.style.display = isViewer ? 'none' : 'inline-flex';
     createBtn.onclick = () => openProjectModal();
   }
 
   const renameBtn = $('#rename-project-btn');
   if (renameBtn) {
-    renameBtn.style.display = (isAdmin && activeProj) ? 'inline-flex' : 'none';
+    renameBtn.style.display = (!isViewer && activeProj) ? 'inline-flex' : 'none';
     renameBtn.onclick = () => openProjectModal(activeProj);
   }
 
@@ -1329,7 +1329,7 @@ function renderProjectsHeader() {
 
 function renderProjectsGrid() {
   const projects = state.projects || [];
-  const isAdmin = getCurrentRole() === 'Workspace admin';
+  const isViewer = getCurrentRole() === 'Viewer';
   const grid = $('#projects-grid');
   if (!grid) return;
 
@@ -1354,14 +1354,14 @@ function renderProjectsGrid() {
           </div>
           <div class="project-card-actions">
             <button class="primary open-proj-btn" data-id="${p.id}" style="font-size:12px">Open Board →</button>
-            ${isAdmin ? `<button class="secondary rename-proj-btn" data-id="${p.id}" style="font-size:12px">✏ Rename</button>` : ''}
+            ${!isViewer ? `<button class="secondary rename-proj-btn" data-id="${p.id}" style="font-size:12px">✏ Rename</button>` : ''}
           </div>
         </div>
       </article>
     `;
   }).join('');
 
-  const addCard = isAdmin ? `
+  const addCard = !isViewer ? `
     <article class="project-card" style="border:2px dashed var(--line);background:transparent;display:grid;place-items:center;cursor:pointer" id="grid-create-proj">
       <div style="text-align:center">
         <span style="font-size:24px;color:var(--primary)">＋</span>

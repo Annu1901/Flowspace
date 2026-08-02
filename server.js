@@ -163,76 +163,108 @@ const server = http.createServer(async (req, res) => {
     const user = getCurrentUser(req, data);
     if (!user) return json(res, 401, { error: 'Unauthorized' });
 
-    // 2. Fetch Multi-tenant State
+    // 2. Fetch Multi-tenant State from Supabase PostgreSQL Database
     if (req.method === 'GET' && url.pathname === '/api/state') {
-      // Purge member records for unaccepted / declined invites
-      if (!data.invites) data.invites = [];
-      data.invites.forEach(inv => {
-        if (inv.status === 'Declined' || inv.status === 'Pending') {
-          data.members = data.members.filter(m => !(m.workspaceId === inv.workspaceId && m.email.toLowerCase() === inv.email.toLowerCase()));
+      try {
+        const userEmail = user.email.toLowerCase();
+        // 1. Get member records for user email to find all joined workspaces
+        const { data: userMems } = await supabase.from('members').select('*').eq('email', userEmail);
+        let wsIds = (userMems || []).map(m => m.workspace_id || m.workspaceId);
+
+        let userWorkspaces = [];
+        if (wsIds.length > 0) {
+          const { data: wsData } = await supabase.from('workspaces').select('*').in('id', wsIds);
+          userWorkspaces = wsData || [];
         }
-      });
 
-      const userWorkspaces = data.workspaces.filter(w => 
-        data.members.some(m => m.workspaceId === w.id && m.email.toLowerCase() === user.email.toLowerCase())
-      );
-      const userRecord = data.users.find(u => u.id === user.id);
-      let activeId = userRecord?.activeWorkspaceId;
-      if (!activeId || !userWorkspaces.some(w => w.id === activeId)) {
-        activeId = userWorkspaces[0]?.id || '';
-        if (userRecord) {
-          userRecord.activeWorkspaceId = activeId;
-          save(data);
+        const userRecord = data.users?.find(u => u.id === user.id || u.email.toLowerCase() === userEmail);
+        let activeId = userRecord?.activeWorkspaceId;
+        if (!activeId || !userWorkspaces.some(w => w.id === activeId)) {
+          activeId = userWorkspaces[0]?.id || '';
         }
+        const activeWorkspace = userWorkspaces.find(w => w.id === activeId) || userWorkspaces[0] || null;
+
+        let workspaceMembers = [], workspaceTasks = [], workspaceProjects = [], workspaceInvites = [];
+        if (activeId) {
+          const { data: mems } = await supabase.from('members').select('*').eq('workspace_id', activeId);
+          const memMap = new Map();
+          (mems || []).forEach(m => {
+            const key = (m.email || '').toLowerCase();
+            if (!memMap.has(key)) {
+              memMap.set(key, { ...m, workspaceId: m.workspace_id || m.workspaceId });
+            }
+          });
+          workspaceMembers = Array.from(memMap.values());
+
+          const { data: tsks } = await supabase.from('tasks').select('*').eq('workspace_id', activeId);
+          workspaceTasks = (tsks || []).map(t => ({
+            ...t,
+            workspaceId: t.workspace_id || t.workspaceId,
+            projectId: t.project_id || t.projectId,
+            assigneeId: t.assignee_id || t.assigneeId,
+            createdBy: (t.created_by || t.createdBy || '').toLowerCase(),
+            dueDate: t.due_date || t.dueDate,
+            attachments: t.attachments || [],
+            comments: t.comments || []
+          }));
+
+          const { data: projs } = await supabase.from('projects').select('*').eq('workspace_id', activeId);
+          workspaceProjects = (projs || []).map(p => ({ ...p, workspaceId: p.workspace_id || p.workspaceId }));
+
+          const { data: invs } = await supabase.from('invites').select('*').eq('workspace_id', activeId);
+          const invMap = new Map();
+          (invs || []).forEach(i => {
+            const key = (i.email || '').toLowerCase();
+            if (!invMap.has(key)) {
+              invMap.set(key, { ...i, workspaceId: i.workspace_id || i.workspaceId });
+            }
+          });
+          workspaceInvites = Array.from(invMap.values());
+        }
+
+        let workspaceActivity = [], workspaceNotifications = [];
+        if (activeId) {
+          const { data: actData } = await supabase.from('activity').select('*').eq('workspace_id', activeId).order('at', { ascending: false });
+          workspaceActivity = (actData || []).map(a => ({ ...a, workspaceId: a.workspace_id || a.workspaceId }));
+
+          const { data: notifData } = await supabase.from('notifications').select('*').eq('workspace_id', activeId).order('at', { ascending: false });
+          workspaceNotifications = (notifData || [])
+            .filter(n => {
+              const target = (n.target_email || n.targetEmail || '').toLowerCase();
+              return !target || target === userEmail;
+            })
+            .map(n => ({ ...n, workspaceId: n.workspace_id || n.workspaceId, targetEmail: n.target_email || n.targetEmail }));
+        }
+
+        const { data: recInvs } = await supabase.from('invites').select('*').eq('email', userEmail);
+        let receivedInvites = [];
+        if (recInvs && recInvs.length > 0) {
+          const allWsIds = recInvs.map(i => i.workspace_id || i.workspaceId);
+          const { data: invWs } = await supabase.from('workspaces').select('*').in('id', allWsIds);
+          const wsMap = new Map((invWs || []).map(w => [w.id, w.name]));
+          receivedInvites = recInvs.map(i => ({
+            ...i,
+            workspaceId: i.workspace_id || i.workspaceId,
+            workspaceName: wsMap.get(i.workspace_id || i.workspaceId) || i.workspaceName || 'Unknown Workspace'
+          }));
+        }
+
+        return json(res, 200, {
+          workspace: activeWorkspace,
+          workspaces: userWorkspaces,
+          activeWorkspaceId: activeId,
+          projects: workspaceProjects,
+          members: workspaceMembers,
+          invites: workspaceInvites,
+          tasks: workspaceTasks,
+          activity: workspaceActivity,
+          notifications: workspaceNotifications,
+          receivedInvites: receivedInvites,
+          user: user
+        });
+      } catch (err) {
+        console.error('Supabase query error in server.js:', err);
       }
-      const activeWorkspace = data.workspaces.find(w => w.id === activeId) || userWorkspaces[0] || null;
-      const workspaceMembers = activeId ? data.members.filter(m => m.workspaceId === activeId) : [];
-      const workspaceTasks = activeId ? data.tasks.filter(t => t.workspaceId === activeId) : [];
-      const workspaceInvites = activeId ? data.invites.filter(i => i.workspaceId === activeId) : [];
-
-      if (!data.projects) data.projects = [];
-      let workspaceProjects = activeId ? data.projects.filter(p => p.workspaceId === activeId) : [];
-      if (workspaceProjects.length === 0 && activeWorkspace) {
-        const defaultProj = {
-          id: id(),
-          workspaceId: activeId,
-          name: 'Product launch',
-          description: 'Plan, ship, and celebrate the next milestone.',
-          createdAt: now(),
-          updatedAt: now()
-        };
-        data.projects.push(defaultProj);
-        workspaceProjects = [defaultProj];
-        data.tasks.filter(t => t.workspaceId === activeId && !t.projectId).forEach(t => t.projectId = defaultProj.id);
-        save(data);
-      }
-
-      const receivedInvites = data.invites.filter(i => 
-        i.email.toLowerCase() === user.email.toLowerCase()
-      ).map(i => {
-        const ws = data.workspaces.find(w => w.id === i.workspaceId);
-        return { ...i, workspaceName: ws ? ws.name : (i.workspaceName || 'Unknown Workspace') };
-      });
-
-      const pendingUserInvites = receivedInvites.filter(i => i.status === 'Pending');
-
-      const userNotifications = (data.notifications || []).filter(n => 
-        !n.targetEmail || n.targetEmail.toLowerCase() === user.email.toLowerCase()
-      );
-
-      return json(res, 200, {
-        workspace: activeWorkspace,
-        workspaces: userWorkspaces,
-        activeWorkspaceId: activeId,
-        projects: workspaceProjects,
-        members: workspaceMembers,
-        invites: workspaceInvites,
-        tasks: workspaceTasks,
-        activity: data.activity || [],
-        notifications: userNotifications,
-        pendingInvites: pendingUserInvites,
-        receivedInvites: receivedInvites
-      });
     }
 
     // 3. Edit Account Profile

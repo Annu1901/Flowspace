@@ -1843,9 +1843,14 @@ function showLogin() {
       }
       const user = await api('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) });
       localStorage.setItem('flowspace_user', JSON.stringify(user));
+      localStorage.removeItem('flowspace_active_workspace');
+      localStorage.removeItem('flowspace_active_project');
+      localStorage.removeItem('flowspace_static_db');
       $('#auth-backdrop').classList.remove('show');
-      toggleAuthShell(true);
+      state = null;
+      activeTask = null;
       await refresh();
+      toggleAuthShell(true);
       connectLive();
       setView('overview');
       toast('Logged in successfully!');
@@ -2069,9 +2074,14 @@ function showSignup() {
       }
       const user = await api('/api/auth/signup', { method: 'POST', body: JSON.stringify(payload) });
       localStorage.setItem('flowspace_user', JSON.stringify(user));
+      localStorage.removeItem('flowspace_active_workspace');
+      localStorage.removeItem('flowspace_active_project');
+      localStorage.removeItem('flowspace_static_db');
       $('#auth-backdrop').classList.remove('show');
-      toggleAuthShell(true);
+      state = null;
+      activeTask = null;
       await refresh();
+      toggleAuthShell(true);
       connectLive();
       setView('overview');
       toast('Account created successfully!');
@@ -2673,8 +2683,10 @@ async function init() {
   // Auth logic check
   const loggedInUser = localStorage.getItem('flowspace_user');
   if (loggedInUser) {
-    toggleAuthShell(true);
+    state = null;
+    activeTask = null;
     await refresh();
+    toggleAuthShell(true);
     connectLive();
     
     // Live auto-refresh polling with non-overlapping execution lock
@@ -2851,6 +2863,15 @@ async function init() {
     localStorage.removeItem('flowspace_user');
     localStorage.removeItem('flowspace_active_workspace');
     localStorage.removeItem('flowspace_active_project');
+    localStorage.removeItem('flowspace_static_db');
+    state = null;
+    activeTask = null;
+
+    if ($('#board-columns')) $('#board-columns').innerHTML = '';
+    if ($('#team-grid')) $('#team-grid').innerHTML = '';
+    if ($('#full-activity')) $('#full-activity').innerHTML = '';
+    if ($('#notifications-list')) $('#notifications-list').innerHTML = '';
+
     if (liveSource) {
       try { liveSource.close(); } catch(e) {}
       liveSource = null;

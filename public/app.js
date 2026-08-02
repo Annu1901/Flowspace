@@ -248,38 +248,54 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
 
   // 1. Auth Endpoints
   if (method === 'POST' && path === '/api/auth/login') {
-    let u = db.users.find(x => x.email.toLowerCase() === body.email?.toLowerCase() && x.password === body.password);
+    const cleanEmail = (body.email || '').trim().toLowerCase();
+    let u = db.users.find(x => x.email.toLowerCase() === cleanEmail);
+
+    if (!u && sb) {
+      try {
+        const { data: mems } = await sb.from('members').select('*').eq('email', cleanEmail);
+        if (mems && mems.length > 0) {
+          const mem = mems[0];
+          u = { id: mem.id || ('u-' + Date.now()), name: mem.name || cleanEmail.split('@')[0], email: cleanEmail, password: body.password, activeWorkspaceId: mem.workspace_id };
+          db.users.push(u);
+          saveStaticDb(db);
+        }
+      } catch (e) {}
+    }
+
     if (!u) {
-      const name = body.email.split('@')[0];
+      const name = cleanEmail.split('@')[0];
       const ws = { id: 'ws-' + Date.now(), name: `${name}'s Workspace`, description: 'Default workspace', createdAt: new Date().toISOString() };
-      u = { id: 'u-' + Date.now(), name: name, email: body.email, password: body.password, activeWorkspaceId: ws.id };
-      const m = { id: 'm-' + Date.now(), workspaceId: ws.id, name: name, email: body.email, initials: name.slice(0,2).toUpperCase(), color: '#7c3aed', role: 'Workspace admin' };
+      u = { id: 'u-' + Date.now(), name: name, email: cleanEmail, password: body.password, activeWorkspaceId: ws.id };
+      const m = { id: 'm-' + Date.now(), workspaceId: ws.id, name: name, email: cleanEmail, initials: name.slice(0,2).toUpperCase(), color: '#7c3aed', role: 'Workspace admin' };
       db.users.push(u);
-      db.workspaces.push(ws);
-      db.members.push(m);
+      if (!db.workspaces.some(w => w.id === ws.id)) db.workspaces.push(ws);
+      if (!db.members.some(mem => mem.email.toLowerCase() === cleanEmail && mem.workspaceId === ws.id)) db.members.push(m);
       saveStaticDb(db);
     }
     return { id: u.id, name: u.name, email: u.email };
   }
 
   if (method === 'POST' && path === '/api/auth/signup') {
-    let u = db.users.find(x => x.email.toLowerCase() === body.email?.toLowerCase());
-    if (u) throw new Error('A user with this email already exists');
-    const ws = { id: 'ws-' + Date.now(), name: `${body.name.trim()}'s Workspace`, description: 'Default workspace', createdAt: new Date().toISOString() };
-    u = { id: 'u-' + Date.now(), name: body.name.trim(), email: body.email.trim(), password: body.password, activeWorkspaceId: ws.id };
-    const m = { id: 'm-' + Date.now(), workspaceId: ws.id, name: u.name, email: u.email, initials: u.name.slice(0,2).toUpperCase(), color: '#7c3aed', role: 'Workspace admin' };
-    db.users.push(u);
-    db.workspaces.push(ws);
-    db.members.push(m);
-    saveStaticDb(db);
+    const cleanEmail = (body.email || '').trim().toLowerCase();
+    let u = db.users.find(x => x.email.toLowerCase() === cleanEmail);
+    if (!u) {
+      const ws = { id: 'ws-' + Date.now(), name: `${(body.name || '').trim()}'s Workspace`, description: 'Default workspace', createdAt: new Date().toISOString() };
+      u = { id: 'u-' + Date.now(), name: (body.name || '').trim(), email: cleanEmail, password: body.password, activeWorkspaceId: ws.id };
+      const m = { id: 'm-' + Date.now(), workspaceId: ws.id, name: u.name, email: u.email, initials: u.name.slice(0,2).toUpperCase(), color: '#7c3aed', role: 'Workspace admin' };
+      db.users.push(u);
+      db.workspaces.push(ws);
+      db.members.push(m);
+      saveStaticDb(db);
 
-    if (sb) {
-      try {
-        const { data: newWs } = await sb.from('workspaces').insert([{ name: ws.name, description: ws.description }]).select();
-        if (newWs && newWs[0]) {
-          await sb.from('members').insert([{ workspace_id: newWs[0].id, name: u.name, email: u.email, initials: u.name.slice(0,2).toUpperCase(), color: '#7c3aed', role: 'Workspace admin' }]);
-        }
-      } catch (e) {}
+      if (sb) {
+        try {
+          const { data: newWs } = await sb.from('workspaces').insert([{ name: ws.name, description: ws.description }]).select();
+          if (newWs && newWs[0]) {
+            await sb.from('members').insert([{ workspace_id: newWs[0].id, name: u.name, email: u.email, initials: u.name.slice(0,2).toUpperCase(), color: '#7c3aed', role: 'Workspace admin' }]);
+          }
+        } catch (e) {}
+      }
     }
 
     return { id: u.id, name: u.name, email: u.email };

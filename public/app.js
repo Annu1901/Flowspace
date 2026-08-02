@@ -1277,6 +1277,58 @@ function canUserModifyTask(t) {
   return true;
 }
 
+function checkPendingInvitationsModal() {
+  if (!state || !state.receivedInvites || state.receivedInvites.length === 0) return;
+  const pendingInvs = state.receivedInvites.filter(i => i.status === 'Pending');
+  if (pendingInvs.length === 0) return;
+
+  const firstInv = pendingInvs[0];
+  const modalKey = 'flowspace_shown_invite_' + firstInv.id;
+  if (sessionStorage.getItem(modalKey)) return;
+  sessionStorage.setItem(modalKey, 'true');
+
+  modal(`
+    <div class="modal" style="max-width:440px;text-align:center">
+      <div style="font-size:36px;margin-bottom:8px">📩</div>
+      <h2 style="font-size:20px;margin-bottom:6px">Workspace Invitation Received!</h2>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:20px">
+        You have been invited to join <b>"${esc(firstInv.workspaceName)}"</b> as a <b>${esc(firstInv.role)}</b>.
+      </p>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button type="button" id="modal-decline-invite-btn" class="secondary" style="padding:10px 18px">Decline</button>
+        <button type="button" id="modal-accept-invite-btn" class="primary" style="padding:10px 18px">Join Workspace →</button>
+      </div>
+    </div>
+  `);
+
+  if ($('#modal-accept-invite-btn')) {
+    $('#modal-accept-invite-btn').onclick = async () => {
+      try {
+        await api('/api/invites/join', { method: 'POST', body: JSON.stringify({ id: firstInv.id }) });
+        toast(`Joined ${firstInv.workspaceName}!`);
+        await refresh();
+        close();
+        setView('overview');
+      } catch (e) {
+        toast(e.message || 'Failed to join workspace');
+      }
+    };
+  }
+
+  if ($('#modal-decline-invite-btn')) {
+    $('#modal-decline-invite-btn').onclick = async () => {
+      try {
+        await api('/api/invites/decline', { method: 'POST', body: JSON.stringify({ id: firstInv.id }) });
+        toast('Invitation declined');
+        await refresh();
+        close();
+      } catch (e) {
+        toast(e.message || 'Failed to decline invitation');
+      }
+    };
+  }
+}
+
 function render() {
   const role = getCurrentRole();
   const isAdmin = role === 'Workspace admin';
@@ -1295,6 +1347,7 @@ function render() {
   renderAccountView();
   renderNotifications();
   timeUI();
+  checkPendingInvitationsModal();
 }
 
 function renderWorkspace() {

@@ -462,6 +462,61 @@ const server = http.createServer(async (req, res) => {
       return json(res,200,w);
     }
 
+    // 4.5 Invites API
+    if (req.method === 'POST' && url.pathname === '/api/invites') {
+      const b = await body(req);
+      const userRecord = data.users.find(u => u.id === user.id);
+      const activeWsId = userRecord?.activeWorkspaceId || 'workspace-1';
+      const ws = data.workspaces.find(w => w.id === activeWsId) || { name: 'Workspace' };
+      const invitedEmail = b.email?.trim().toLowerCase();
+      if (!invitedEmail) return json(res, 400, { error: 'Email is required' });
+
+      const notifText = `📩 You were invited by ${user.name} to join workspace "${ws.name}" as ${b.role || 'Workspace member'}.`;
+      const invite = {
+        id: id(),
+        workspaceId: activeWsId,
+        workspaceName: ws.name,
+        email: invitedEmail,
+        name: b.name || invitedEmail.split('@')[0],
+        role: b.role || 'Workspace member',
+        status: 'Pending',
+        createdAt: now()
+      };
+      if (!data.invites) data.invites = [];
+      data.invites.push(invite);
+
+      log(data, user.name, 'invited member', invitedEmail);
+      notify(data, notifText, invitedEmail);
+      save(data);
+
+      if (supabase) {
+        try {
+          await supabase.from('invites').insert([{
+            workspace_id: activeWsId,
+            email: invitedEmail,
+            role: b.role || 'Workspace member',
+            status: 'Pending'
+          }]);
+          await supabase.from('notifications').insert([{
+            workspace_id: activeWsId,
+            text: notifText,
+            target_email: invitedEmail,
+            read: false
+          }]);
+          await supabase.from('activity').insert([{
+            workspace_id: activeWsId,
+            actor: user.name,
+            action: 'invited member',
+            task: invitedEmail
+          }]);
+        } catch (e) {
+          console.error('Supabase invite insert error in server.js:', e);
+        }
+      }
+
+      return json(res, 201, invite);
+    }
+
     // Member Role Management
     if (req.method === 'PATCH' && parts[0] === 'api' && parts[1] === 'members' && parts[2]) {
       if (getCallerRole(req, data) !== 'Workspace admin') return json(res, 403, { error: 'Only workspace admins can manage member roles' });

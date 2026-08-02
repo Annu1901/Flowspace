@@ -909,14 +909,19 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
   return { ok: true };
 }
 
+const RENDER_BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? ''
+  : (localStorage.getItem('flowspace_backend_url') || '');
+
 async function api(url, opts = {}) {
   const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
   const headers = { 'Content-Type': 'application/json' };
   if (user && user.id) {
     headers['x-user-id'] = user.id;
   }
+  const targetUrl = (RENDER_BACKEND_URL && url.startsWith('/api')) ? RENDER_BACKEND_URL + url : url;
   try {
-    const r = await fetch(url, { headers: { ...headers, ...(opts.headers || {}) }, ...opts });
+    const r = await fetch(targetUrl, { headers: { ...headers, ...(opts.headers || {}) }, ...opts });
     const text = await r.text();
     if (text.trim().startsWith('<')) {
       return handleStaticClientApi(url, opts, user);

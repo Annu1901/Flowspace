@@ -463,6 +463,30 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     return p;
   }
 
+  if (method === 'DELETE' && path.startsWith('/api/projects/')) {
+    const projId = path.split('/')[3];
+    const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+    const p = db.projects ? db.projects.find(x => x.id === projId) : null;
+    if (p) {
+      if (db.projects) db.projects = db.projects.filter(x => x.id !== projId);
+      if (db.tasks) db.tasks = db.tasks.filter(t => t.projectId !== projId);
+      const actorName = user ? (user.name || user.email.split('@')[0]) : 'Member';
+      const actEntry = { id: 'act-' + Date.now(), workspaceId: activeWsId, actor: actorName, action: 'deleted project', task: p.name, at: new Date().toISOString() };
+      if (!db.activity) db.activity = [];
+      db.activity.unshift(actEntry);
+      saveStaticDb(db);
+
+      if (sb) {
+        try {
+          await sb.from('projects').delete().eq('id', projId);
+          await sb.from('tasks').delete().eq('project_id', projId);
+          await sb.from('activity').insert([{ workspace_id: activeWsId, actor: actorName, action: 'deleted project', task: p.name }]);
+        } catch (e) {}
+      }
+    }
+    return { ok: true };
+  }
+
   // 4. Tasks
   if (method === 'POST' && path === '/api/tasks') {
     const activeWsId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
@@ -1388,13 +1412,35 @@ function openProjectModal(p = null) {
             <textarea name="description" placeholder="Short summary of project goals">${esc(p?.description || '')}</textarea>
           </div>
         </div>
-        <div class="modal-foot">
-          <button type="button" class="secondary cancel">Cancel</button>
-          <button class="primary">${isEdit ? 'Save changes' : 'Create project'}</button>
+        <div class="modal-foot" style="justify-content: space-between;">
+          ${isEdit ? `<button type="button" id="delete-proj-modal-btn" class="secondary" style="color:#ef4444;border-color:rgba(239,68,68,0.3)">Delete project</button>` : '<div></div>'}
+          <div style="display:flex;gap:8px">
+            <button type="button" class="secondary cancel">Cancel</button>
+            <button class="primary">${isEdit ? 'Save changes' : 'Create project'}</button>
+          </div>
         </div>
       </form>
     </div>
   `);
+
+  if (isEdit && $('#delete-proj-modal-btn')) {
+    $('#delete-proj-modal-btn').onclick = async () => {
+      if (confirm(`Are you sure you want to delete the project "${p.name}"? All associated tasks will be removed.`)) {
+        try {
+          await api(`/api/projects/${p.id}`, { method: 'DELETE' });
+          if (currentSelectedProjectId === p.id) {
+            currentSelectedProjectId = 'all';
+            localStorage.setItem('flowspace_active_project', 'all');
+          }
+          await refresh();
+          close();
+          toast('Project deleted successfully');
+        } catch (err) {
+          toast(err.message || 'Failed to delete project');
+        }
+      }
+    };
+  }
 
   $('#project-modal-form').onsubmit = async e => {
     e.preventDefault();

@@ -911,7 +911,7 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
 
 const RENDER_BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? ''
-  : (localStorage.getItem('flowspace_backend_url') || '');
+  : (localStorage.getItem('flowspace_backend_url') || 'https://flowspace-backend-ajcn.onrender.com');
 
 async function api(url, opts = {}) {
   const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');

@@ -781,7 +781,6 @@ const server = http.createServer(async (req, res) => {
             status: task.status || 'todo',
             priority: task.priority || 'medium',
             assignee_id: insertAssigneeId,
-            created_by: user ? user.email.toLowerCase() : null,
             due_date: insertDueDate,
             tags: task.tags || []
           }]).select();

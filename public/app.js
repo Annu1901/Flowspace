@@ -608,7 +608,6 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
           status: normalizeStatus(body.status),
           priority: body.priority || 'medium',
           assignee_id: insertAssigneeId,
-          created_by: user ? user.email.toLowerCase() : null,
           due_date: insertDueDate,
           tags: body.tags || []
         }]).select();

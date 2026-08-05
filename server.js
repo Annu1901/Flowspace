@@ -819,7 +819,25 @@ const server = http.createServer(async (req, res) => {
           }
         }
         save(data);
-        return json(res,200,task);
+
+        if (supabase) {
+          try {
+            const updateObj = {};
+            if (b.title !== undefined) updateObj.title = b.title.trim();
+            if (b.description !== undefined) updateObj.description = b.description;
+            if (b.status !== undefined) updateObj.status = b.status;
+            if (b.priority !== undefined) updateObj.priority = b.priority;
+            if (b.dueDate !== undefined) updateObj.due_date = (b.dueDate && String(b.dueDate).trim() !== '') ? b.dueDate.trim() : null;
+            if (b.assigneeId !== undefined) updateObj.assignee_id = (b.assigneeId && String(b.assigneeId).trim() !== '') ? b.assigneeId.trim() : null;
+            if (b.projectId !== undefined) updateObj.project_id = (b.projectId && String(b.projectId).trim() !== '' && b.projectId !== 'all') ? b.projectId.trim() : null;
+
+            await supabase.from('tasks').update(updateObj).eq('id', task.id);
+          } catch (e) {
+            console.error('Supabase task patch error in server.js:', e);
+          }
+        }
+
+        return json(res, 200, task);
       }
       if (req.method === 'DELETE' && parts.length === 3) {
         const callerRole = getCallerRole(req, data, task.workspaceId);

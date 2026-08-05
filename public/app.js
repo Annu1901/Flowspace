@@ -732,13 +732,19 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
     }
     if (sb) {
       try {
-        await sb.from('tasks').update({
-          status: body.status,
-          title: body.title,
-          description: body.description,
-          priority: body.priority
-        }).eq('id', taskId);
-      } catch (e) {}
+        const updateData = {};
+        if (body.title !== undefined) updateData.title = body.title;
+        if (body.description !== undefined) updateData.description = body.description;
+        if (body.status !== undefined) updateData.status = normalizeStatus(body.status);
+        if (body.priority !== undefined) updateData.priority = body.priority;
+        if (body.dueDate !== undefined) updateData.due_date = (body.dueDate && String(body.dueDate).trim() !== '') ? body.dueDate.trim() : null;
+        if (body.assigneeId !== undefined) updateData.assignee_id = (body.assigneeId && String(body.assigneeId).trim() !== '') ? body.assigneeId.trim() : null;
+        if (body.projectId !== undefined) updateData.project_id = (body.projectId && String(body.projectId).trim() !== '' && body.projectId !== 'all') ? body.projectId.trim() : null;
+
+        await sb.from('tasks').update(updateData).eq('id', taskId);
+      } catch (e) {
+        console.error('Supabase task patch error:', e);
+      }
     }
     return t;
   }
@@ -2407,8 +2413,46 @@ async function refresh() {
 }
 
 async function saveTask(id, data) {
-  await api('/api/tasks/' + id, { method: 'PATCH', body: JSON.stringify(data) });
+  const normStatus = data.status ? normalizeStatus(data.status) : undefined;
+  const payload = { ...data };
+  if (normStatus) payload.status = normStatus;
+
+  if (typeof state !== 'undefined' && state.tasks) {
+    const t = state.tasks.find(x => x.id === id);
+    if (t) {
+      Object.assign(t, payload);
+      if (payload.status) t.status = payload.status;
+    }
+  }
+
+  render();
+
+  try {
+    await api('/api/tasks/' + id, { method: 'PATCH', body: JSON.stringify(payload) });
+  } catch (e) {
+    console.warn('Task update API note:', e);
+  }
+
+  const sb = getSupabase();
+  if (sb) {
+    try {
+      const updateData = {};
+      if (payload.title !== undefined) updateData.title = payload.title;
+      if (payload.description !== undefined) updateData.description = payload.description;
+      if (payload.status !== undefined) updateData.status = payload.status;
+      if (payload.priority !== undefined) updateData.priority = payload.priority;
+      if (payload.dueDate !== undefined) updateData.due_date = (payload.dueDate && String(payload.dueDate).trim() !== '') ? payload.dueDate.trim() : null;
+      if (payload.assigneeId !== undefined) updateData.assignee_id = (payload.assigneeId && String(payload.assigneeId).trim() !== '') ? payload.assigneeId.trim() : null;
+      if (payload.projectId !== undefined) updateData.project_id = (payload.projectId && String(payload.projectId).trim() !== '' && payload.projectId !== 'all') ? payload.projectId.trim() : null;
+
+      await sb.from('tasks').update(updateData).eq('id', id);
+    } catch (e) {
+      console.error('Supabase task update error:', e);
+    }
+  }
+
   await refresh();
+  render();
 }
 
 function modal(html) {

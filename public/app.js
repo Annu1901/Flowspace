@@ -549,9 +549,21 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
 
     if (sb) {
       try {
-        await sb.from('tasks').insert([{
+        let insertProjId = body.projectId || null;
+        if (insertProjId === 'all') insertProjId = null;
+
+        if (insertProjId) {
+          try {
+            const { data: dbP } = await sb.from('projects').select('id').eq('id', insertProjId).single();
+            if (!dbP) insertProjId = null;
+          } catch (e) {
+            insertProjId = null;
+          }
+        }
+
+        const { data: insertedTasks, error: taskInsertErr } = await sb.from('tasks').insert([{
           workspace_id: activeWsId,
-          project_id: body.projectId || null,
+          project_id: insertProjId,
           title: body.title,
           description: body.description || '',
           status: body.status || 'todo',
@@ -560,8 +572,17 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
           created_by: user ? user.email.toLowerCase() : null,
           due_date: body.dueDate || null,
           tags: body.tags || []
-        }]);
-      } catch (e) {}
+        }]).select();
+
+        if (insertedTasks && insertedTasks[0]) {
+          task.id = insertedTasks[0].id;
+        }
+        if (taskInsertErr) {
+          console.error('Supabase task insert error:', taskInsertErr);
+        }
+      } catch (e) {
+        console.error('Supabase task insert exception:', e);
+      }
     }
 
     // Log Activity
@@ -1169,11 +1190,11 @@ const member = id => state.members.find(m => m.id === id);
 const date = v => v ? new Date(v + 'T12:00:00').toLocaleDateString('en', { month: 'short', day: 'numeric' }) : 'No due date';
 const activeWorkspace = () => state.activeWorkspaceId || state.workspace?.id;
 const currentTasks = () => {
-  const wsTasks = state.tasks.filter(t => (t.workspaceId || state.workspace?.id) === activeWorkspace());
-  if (currentSelectedProjectId === 'all') return wsTasks;
+  const wsTasks = state.tasks.filter(t => (t.workspaceId || state.workspace?.id || state.activeWorkspaceId) === activeWorkspace());
+  if (currentSelectedProjectId === 'all' || !currentSelectedProjectId) return wsTasks;
   const activeProj = getActiveProject();
   if (!activeProj) return wsTasks;
-  return wsTasks.filter(t => t.projectId === activeProj.id || !t.projectId || t.projectId === state.projects?.[0]?.id);
+  return wsTasks.filter(t => !t.projectId || t.projectId === activeProj.id || t.projectId === 'all' || (state.projects && state.projects.length === 1));
 };
 
 function timeUI() {
@@ -1357,7 +1378,8 @@ function renderWorkspace() {
 }
 
 function renderOverview() {
-  const ts = currentTasks();
+  const activeWsId = activeWorkspace();
+  const ts = state.tasks.filter(t => (t.workspaceId || state.workspace?.id || state.activeWorkspaceId) === activeWsId);
   const total = ts.length;
   const done = ts.filter(t => normalizeStatus(t.status) === 'done').length;
   const progress = ts.filter(t => normalizeStatus(t.status) === 'progress').length;

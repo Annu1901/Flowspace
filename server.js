@@ -722,6 +722,36 @@ const server = http.createServer(async (req, res) => {
         }
       }
       save(data);
+
+      if (supabase) {
+        try {
+          let insertProjId = task.projectId || null;
+          if (insertProjId === 'all') insertProjId = null;
+
+          const { data: insertedTask, error: taskInsertErr } = await supabase.from('tasks').insert([{
+            workspace_id: activeWsId,
+            project_id: insertProjId,
+            title: task.title,
+            description: task.description || '',
+            status: task.status || 'todo',
+            priority: task.priority || 'medium',
+            assignee_id: task.assigneeId || null,
+            created_by: user ? user.email.toLowerCase() : null,
+            due_date: task.dueDate || null,
+            tags: task.tags || []
+          }]).select();
+
+          if (insertedTask && insertedTask[0]) {
+            task.id = insertedTask[0].id;
+          }
+          if (taskInsertErr) {
+            console.error('Supabase task insert error in server.js:', taskInsertErr);
+          }
+        } catch (e) {
+          console.error('Supabase task insert exception in server.js:', e);
+        }
+      }
+
       return json(res, 201, task);
     }
     if (parts[0] === 'api' && parts[1] === 'tasks' && parts[2]) {

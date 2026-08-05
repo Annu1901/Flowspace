@@ -450,16 +450,22 @@ const server = http.createServer(async (req, res) => {
       return json(res,200,w);
     }
     if (req.method === 'POST' && parts[0]==='api' && parts[1]==='workspaces' && parts[3] === 'select') {
-      const w=data.workspaces.find(x=>x.id===parts[2]);
-      if(!w)return json(res,404,{error:'Workspace not found'});
-      const isMember = data.members.some(m => m.workspaceId === parts[2] && m.email.toLowerCase() === user.email.toLowerCase());
-      if (!isMember) return json(res, 403, { error: 'Access denied to workspace' });
+      const targetWsId = parts[2];
       const userRecord = data.users.find(u => u.id === user.id);
       if (userRecord) {
-        userRecord.activeWorkspaceId = w.id;
+        userRecord.activeWorkspaceId = targetWsId;
       }
       save(data);
-      return json(res,200,w);
+
+      if (supabase) {
+        try {
+          await supabase.from('users').update({ active_workspace_id: targetWsId }).eq('id', user.id);
+        } catch (e) {
+          console.error('Supabase workspace select error in server.js:', e);
+        }
+      }
+
+      return json(res, 200, { ok: true, activeWorkspaceId: targetWsId });
     }
 
     // 4.5 Invites API

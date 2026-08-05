@@ -91,17 +91,15 @@ async function fetchSupabaseState(user) {
   try {
     const userEmail = user.email.toLowerCase();
 
-    // 1. Get members for this email to find workspaces
-    const { data: userMems, error: memErr } = await sb.from('members').select('*').eq('email', userEmail);
-    if (memErr) return null;
+    // 1. Get members for this email to find workspaces (case-insensitive)
+    const { data: userMems } = await sb.from('members').select('*').ilike('email', userEmail);
+    let wsIds = (userMems || []).map(m => m.workspace_id || m.workspaceId).filter(Boolean);
 
-    let wsIds = (userMems || []).map(m => m.workspace_id || m.workspaceId);
-
-    // 2. Fetch User Workspaces
+    // 2. Fetch User Workspaces (by member membership or created_by)
     let userWorkspaces = [];
-    if (wsIds.length > 0) {
-      const { data: wsData } = await sb.from('workspaces').select('*').in('id', wsIds);
-      userWorkspaces = wsData || [];
+    const { data: allWs } = await sb.from('workspaces').select('*');
+    if (allWs) {
+      userWorkspaces = allWs.filter(w => wsIds.includes(w.id) || (user.id && w.created_by === user.id) || (userEmail && w.created_by === userEmail));
     }
 
     // Default workspace if none exists in DB
@@ -428,6 +426,23 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       } catch (e) {}
     }
     return w;
+  }
+
+  if (method === 'POST' && path.startsWith('/api/workspaces/') && path.endsWith('/select')) {
+    const wsId = path.split('/')[3];
+    localStorage.setItem('flowspace_active_workspace', wsId);
+    localStorage.setItem('flowspace_active_project', 'all');
+    currentSelectedProjectId = 'all';
+    let w = db.workspaces ? db.workspaces.find(x => x.id === wsId) : null;
+    if (!w && typeof state !== 'undefined' && state.workspaces) {
+      w = state.workspaces.find(x => x.id === wsId);
+    }
+    if (sb && user && user.id) {
+      try {
+        await sb.from('users').update({ active_workspace_id: wsId }).eq('id', user.id);
+      } catch (e) {}
+    }
+    return w || { id: wsId, name: 'Workspace' };
   }
 
   // 3.5 Projects
@@ -2672,7 +2687,24 @@ function checkPendingInvitePrompt() {
 function manageWorkspace() {
   modal(`<div class="modal"><div class="modal-head"><h2>Manage workspaces</h2><button class="close">×</button></div><div id="workspace-list">${state.workspaces.map(w => `<div class="invite-row"><div><b>${esc(w.name)}</b><small>${esc(w.description || 'No description')}</small></div>${w.id === state.activeWorkspaceId ? '<span class="tag">Current</span>' : `<button class="secondary select-workspace" data-id="${w.id}">Open</button>`}</div>`).join('')}</div><hr style="border:0;border-top:1px solid #e8ebf2;margin:18px 0"><form id="workspace-form"><div class="field"><label>WORKSPACE NAME</label><input required name="name" value="${esc(state.workspace.name)}"></div><div class="field"><label>DESCRIPTION</label><input name="description" value="${esc(state.workspace.description || '')}"></div><div class="modal-foot"><button class="primary">Rename current workspace</button></div></form><hr style="border:0;border-top:1px solid #e8ebf2;margin:18px 0"><form id="create-workspace"><div class="field"><label>NEW WORKSPACE NAME</label><input required name="name" placeholder="e.g. Client portal"></div><div class="field"><label>DESCRIPTION</label><input name="description" placeholder="What is this workspace for?"></div><div class="modal-foot"><button class="secondary">Create workspace</button></div></form></div>`);
   $$('.select-workspace').forEach(b => b.onclick = async () => {
-    await api(`/api/workspaces/${b.dataset.id}/select`, { method: 'POST' });
+    const wsId = b.dataset.id;
+    localStorage.setItem('flowspace_active_workspace', wsId);
+    currentSelectedProjectId = 'all';
+    localStorage.setItem('flowspace_active_project', 'all');
+    try {
+      await api(`/api/workspaces/${wsId}/select`, { method: 'POST' });
+    } catch (e) {
+      console.warn('Workspace selection note:', e);
+    }
+    const sb = getSupabase();
+    if (sb) {
+      try {
+        const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
+        if (user && user.id) {
+          await sb.from('users').update({ active_workspace_id: wsId }).eq('id', user.id);
+        }
+      } catch (e) {}
+    }
     await refresh();
     close();
     toast('Workspace switched');

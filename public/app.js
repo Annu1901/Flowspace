@@ -564,8 +564,9 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
 
     if (sb) {
       try {
-        let insertProjId = body.projectId || null;
-        if (insertProjId === 'all') insertProjId = null;
+        let insertProjId = (body.projectId && String(body.projectId).trim() !== '' && body.projectId !== 'all') ? String(body.projectId).trim() : null;
+        let insertAssigneeId = (body.assigneeId && String(body.assigneeId).trim() !== '') ? String(body.assigneeId).trim() : null;
+        let insertDueDate = (body.dueDate && String(body.dueDate).trim() !== '') ? String(body.dueDate).trim() : null;
 
         if (insertProjId) {
           try {
@@ -576,16 +577,25 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
           }
         }
 
+        if (insertAssigneeId) {
+          try {
+            const { data: dbM } = await sb.from('members').select('id').eq('id', insertAssigneeId).single();
+            if (!dbM) insertAssigneeId = null;
+          } catch (e) {
+            insertAssigneeId = null;
+          }
+        }
+
         const { data: insertedTasks, error: taskInsertErr } = await sb.from('tasks').insert([{
           workspace_id: activeWsId,
           project_id: insertProjId,
           title: body.title,
           description: body.description || '',
-          status: body.status || 'todo',
+          status: normalizeStatus(body.status),
           priority: body.priority || 'medium',
-          assignee_id: body.assigneeId || null,
+          assignee_id: insertAssigneeId,
           created_by: user ? user.email.toLowerCase() : null,
-          due_date: body.dueDate || null,
+          due_date: insertDueDate,
           tags: body.tags || []
         }]).select();
 
@@ -598,6 +608,22 @@ async function handleStaticClientApi(urlStr, opts = {}, user = null) {
       } catch (e) {
         console.error('Supabase task insert exception:', e);
       }
+    }
+
+    if (typeof state !== 'undefined') {
+      const norm = {
+        ...task,
+        workspaceId: activeWsId,
+        projectId: task.projectId || body.projectId || '',
+        assigneeId: task.assigneeId || body.assigneeId || '',
+        status: normalizeStatus(task.status),
+        attachments: [],
+        comments: []
+      };
+      if (!state.tasks) state.tasks = [];
+      const existingIdx = state.tasks.findIndex(x => x.id === norm.id);
+      if (existingIdx >= 0) state.tasks[existingIdx] = norm;
+      else state.tasks.unshift(norm);
     }
 
     // Log Activity
@@ -2422,7 +2448,21 @@ function wireTaskForm(t) {
       if (t.id) {
         await saveTask(t.id, f);
       } else {
-        await api('/api/tasks', { method: 'POST', body: JSON.stringify(f) });
+        const createdTask = await api('/api/tasks', { method: 'POST', body: JSON.stringify(f) });
+        if (createdTask) {
+          const norm = {
+            ...createdTask,
+            workspaceId: state.activeWorkspaceId || localStorage.getItem('flowspace_active_workspace'),
+            status: normalizeStatus(createdTask.status),
+            comments: createdTask.comments || [],
+            attachments: createdTask.attachments || []
+          };
+          if (!state.tasks) state.tasks = [];
+          const idx = state.tasks.findIndex(x => x.id === norm.id);
+          if (idx >= 0) state.tasks[idx] = norm;
+          else state.tasks.unshift(norm);
+          render();
+        }
         await refresh();
       }
       close();

@@ -751,8 +751,27 @@ const server = http.createServer(async (req, res) => {
 
       if (supabase) {
         try {
-          let insertProjId = task.projectId || null;
-          if (insertProjId === 'all') insertProjId = null;
+          let insertProjId = (task.projectId && String(task.projectId).trim() !== '' && task.projectId !== 'all') ? String(task.projectId).trim() : null;
+          let insertAssigneeId = (task.assigneeId && String(task.assigneeId).trim() !== '') ? String(task.assigneeId).trim() : null;
+          let insertDueDate = (task.dueDate && String(task.dueDate).trim() !== '') ? String(task.dueDate).trim() : null;
+
+          if (insertProjId) {
+            try {
+              const { data: dbP } = await supabase.from('projects').select('id').eq('id', insertProjId).single();
+              if (!dbP) insertProjId = null;
+            } catch (e) {
+              insertProjId = null;
+            }
+          }
+
+          if (insertAssigneeId) {
+            try {
+              const { data: dbM } = await supabase.from('members').select('id').eq('id', insertAssigneeId).single();
+              if (!dbM) insertAssigneeId = null;
+            } catch (e) {
+              insertAssigneeId = null;
+            }
+          }
 
           const { data: insertedTask, error: taskInsertErr } = await supabase.from('tasks').insert([{
             workspace_id: activeWsId,
@@ -761,9 +780,9 @@ const server = http.createServer(async (req, res) => {
             description: task.description || '',
             status: task.status || 'todo',
             priority: task.priority || 'medium',
-            assignee_id: task.assigneeId || null,
+            assignee_id: insertAssigneeId,
             created_by: user ? user.email.toLowerCase() : null,
-            due_date: task.dueDate || null,
+            due_date: insertDueDate,
             tags: task.tags || []
           }]).select();
 

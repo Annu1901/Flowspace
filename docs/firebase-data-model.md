@@ -57,6 +57,26 @@ Flowspace utilizes a decoupled data storage model that seamlessly maps to relati
       "createdAt": "2026-08-01T12:30:00Z"
     }
   ],
+  "notifications": [
+    {
+      "id": "n-1",
+      "workspaceId": "ws-1",
+      "text": "📩 You were invited by Ayush to join workspace \"Ayush's Workspace\" as Workspace member.",
+      "targetEmail": "dagarannu40@gmail.com",
+      "read": false,
+      "at": "2026-08-01T12:30:00Z"
+    }
+  ],
+  "activity": [
+    {
+      "id": "act-1",
+      "workspaceId": "ws-1",
+      "actor": "Ayush",
+      "action": "invited member",
+      "task": "dagarannu40@gmail.com",
+      "at": "2026-08-01T12:30:00Z"
+    }
+  ],
   "tasks": [
     {
       "id": "t-1",

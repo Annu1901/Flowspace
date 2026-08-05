@@ -1,49 +1,61 @@
-# Netlify & GitHub Deployment Guide - Flowspace
+# Deployment & Hosting Guide - Flowspace
 
-This guide covers step-by-step instructions to push your repository to **GitHub** and deploy to **Netlify** with real email authentication via **Supabase Auth** & **Resend SMTP**.
+This guide covers step-by-step instructions for pushing the codebase to **GitHub** and hosting the platform live on **Vercel** & **Render** with **Supabase PostgreSQL Database** & **Resend SMTP**.
 
 ---
 
 ## 1. Pushing to GitHub
 
-1. Open your terminal in `d:/flowspace-source-code`:
+1. Open your terminal in the repository root (`d:/flowspace-source-code`):
    ```bash
-   git init
    git add .
-   git commit -m "Initial commit of Flowspace application"
+   git commit -m "Update Flowspace application"
    git branch -M main
-   git remote add origin https://github.com/YOUR_USERNAME/flowspace.git
+   git remote add origin https://github.com/Annu1901/Flowspace.git
    git push -u origin main
    ```
 
 ---
 
-## 2. Deploying to Netlify
+## 2. Deploying Frontend to Vercel
 
-1. Log in to [Netlify Dashboard](https://app.netlify.com).
-2. Click **Add new site** -> **Import an existing project**.
-3. Select **GitHub** and pick `flowspace`.
-4. Configure Build settings:
-   - **Build command**: `npm run build` (or leave empty for static site)
-   - **Publish directory**: `public`
-5. Click **Environment Variables** -> Add:
-   - **`SUPABASE_URL`**: `https://ovvbrwqyjdeomzezhacu.supabase.co`
-   - **`SUPABASE_ANON_KEY`**: `sb_publishable_3UnL1xJOnf9cLMaLTd-zJA_ztW4WeRy`
-6. Click **Deploy site**. Netlify will generate your live URL (e.g., `https://flowspace-app.netlify.app`).
+1. Log in to [Vercel Dashboard](https://vercel.com).
+2. Click **Add New** -> **Project**.
+3. Import the GitHub repository **`Annu1901/Flowspace`**.
+4. Framework Preset: **Other / Static HTML**.
+5. Output Directory: `./public` (or root `./`).
+6. Click **Deploy**.
+7. Vercel will build and assign your live production URL: **[https://flowspace26.vercel.app/](https://flowspace26.vercel.app/)**.
 
 ---
 
-## 3. Configuring Supabase Dashboard & Resend SMTP
+## 3. Deploying Backend API to Render
 
-### 3.1 Update Supabase URL Configuration
+1. Log in to [Render Dashboard](https://render.com).
+2. Click **New +** -> **Web Service**.
+3. Connect GitHub repository **`Annu1901/Flowspace`**.
+4. Settings:
+   - **Environment**: `Node`
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+5. Environment Variables:
+   - `SUPABASE_URL`: `https://ovvbrwqyjdeomzezhacu.supabase.co`
+   - `SUPABASE_ANON_KEY`: `sb_publishable_3UnL1xJOnf9cLMaLTd-zJA_ztW4WeRy`
+6. Click **Create Web Service**.
+
+---
+
+## 4. Configuring Supabase Dashboard & Resend SMTP
+
+### 4.1 Update Supabase URL Configuration
 1. Open [Supabase Dashboard](https://app.supabase.com/project/ovvbrwqyjdeomzezhacu).
 2. Go to **Authentication** -> **URL Configuration**:
-   - Set **Site URL**: `https://flowspace-app.netlify.app`
+   - Set **Site URL**: `https://flowspace26.vercel.app`
    - Add to **Redirect URLs**:
      - `http://localhost:3000/**`
-     - `https://flowspace-app.netlify.app/**`
+     - `https://flowspace26.vercel.app/**`
 
-### 3.2 Configure Resend Custom SMTP
+### 4.2 Configure Resend Custom SMTP
 1. Log in to [Resend.com](https://resend.com) -> Go to **API Keys** -> Create API Key (`re_...`).
 2. Go to Supabase Dashboard -> **Authentication** -> **SMTP Settings**:
    - Turn **ON** **Enable Custom SMTP**.

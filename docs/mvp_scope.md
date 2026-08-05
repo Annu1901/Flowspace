@@ -6,12 +6,13 @@
 | :--- | :--- | :--- |
 | **Authentication** | Real email signup/login, RFC 5322 validation, 8+ char strict password rule, eye toggles, forgot password email reset via Resend. | ✅ Complete |
 | **Workspace Management** | Multi-workspace creation, switching, renaming, workspace-isolated state. | ✅ Complete |
-| **Multi-Project System** | Project grid, project creation, filtering task boards by project. | ✅ Complete |
+| **Multi-Project System** | Project creation, project directory ("All Projects Mode"), project rename, project deletion with task cascade. | ✅ Complete |
 | **Team & RBAC** | Admin, Member, Viewer roles with UI and API permission enforcement. | ✅ Complete |
-| **Team Invitations** | Real email invitations, 1-time popup dismissal with LocalStorage persistence, Received & Sent Invitations Inbox. | ✅ Complete |
+| **Team Invitations** | Real email invitations, non-disruptive in-app notifications, Received & Sent Workspace Invitations Inbox. | ✅ Complete |
 | **Task Management** | Kanban board (Todo, In Progress, Review, Done), drag & drop, due dates, priority tags, file attachments, comments. | ✅ Complete |
-| **Notifications & Activity**| Real-time activity log, user-targeted notifications popover with mark-as-read. | ✅ Complete |
-| **Deployment Setup** | Netlify SPA build setup (`netlify.toml`), Supabase PostgreSQL DB schema (`schema.sql`), environment variable config. | ✅ Complete |
+| **Notifications & Activity**| Real-time activity log, user-targeted notifications popover with live Mark as Read / Mark All Read SQL updates. | ✅ Complete |
+| **Mobile Responsiveness**| Fixed Mobile Bottom Navigation Bar (`< 768px`), touch-optimized modals (`94vw`), responsive 1/2/4 column grids. | ✅ Complete |
+| **Deployment Setup** | Live deployment on Vercel (`flowspace26.vercel.app`), Render Node.js backend, Supabase PostgreSQL schema (`schema.sql`). | ✅ Complete |
 
 ---
 

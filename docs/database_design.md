@@ -9,6 +9,8 @@ erDiagram
     WORKSPACES ||--|{ MEMBERS : includes
     WORKSPACES ||--|{ TASKS : contains
     WORKSPACES ||--|{ INVITES : sends
+    WORKSPACES ||--|{ NOTIFICATIONS : delivers
+    WORKSPACES ||--|{ ACTIVITY : logs
     PROJECTS ||--o{ TASKS : organizes
     USERS ||--o{ TASKS : assigned
 ```
@@ -66,7 +68,7 @@ CREATE TABLE IF NOT EXISTS members (
 CREATE TABLE IF NOT EXISTS tasks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
-    project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     status VARCHAR(50) NOT NULL DEFAULT 'todo',
@@ -91,10 +93,31 @@ CREATE TABLE IF NOT EXISTS invites (
     status VARCHAR(50) NOT NULL DEFAULT 'Pending',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 7. Notifications Table
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    target_email VARCHAR(255),
+    read BOOLEAN DEFAULT false,
+    at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 8. Activity Table
+CREATE TABLE IF NOT EXISTS activity (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+    actor VARCHAR(255) NOT NULL,
+    action VARCHAR(255) NOT NULL,
+    task VARCHAR(255),
+    at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ---
 
-## 3. Database Security & Row-Level Security (RLS)
-- Workspace Isolation: Queries are filtered by `workspace_id`.
-- Unaccepted Membership Enforcement: Users with `Pending` or `Declined` invite statuses are purged from the active `members` table to prevent unauthorized workspace access.
+## 3. Security & Multi-Tenancy Design
+- **Workspace Isolation**: Data queries are strictly scoped by `workspace_id`.
+- **Targeted Notifications Query**: Notifications query fetches records matching `workspace_id = activeId OR target_email = userEmail` so invitations arrive across workspaces.
+- **Cascade Cleanups**: Foreign keys use `ON DELETE CASCADE` so deleting a workspace or project automatically purges dependent rows.

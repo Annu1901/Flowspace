@@ -2694,10 +2694,8 @@ function setView(v) {
   
   if (!currentActive || currentActive.id === v) {
     $$('.view').forEach(x => x.classList.toggle('active', x.id === v));
-    $$('.nav').forEach(x => x.classList.toggle('active', x.dataset.view === v));
+    $$('.nav, .mobile-nav-item').forEach(x => x.classList.toggle('active', x.dataset.view === v));
     updateHeaderText(v);
-    const activeNavLink = $(`.nav[data-view="${v}"]`);
-    if (activeNavLink) setTimeout(() => updateNavIndicator(activeNavLink, true), 50);
     triggerViewEntrance(v);
     return;
   }
@@ -2713,8 +2711,6 @@ function setView(v) {
       targetView.classList.add('active');
       $$('.nav, .mobile-nav-item').forEach(x => x.classList.toggle('active', x.dataset.view === v));
       updateHeaderText(v);
-      const activeNavLink = $(`.nav[data-view="${v}"]`);
-      if (activeNavLink) updateNavIndicator(activeNavLink);
       
       // Fade in & slide up target view content
       gsap.fromTo(targetView, 
@@ -2734,25 +2730,6 @@ function updateHeaderText(v) {
   } else {
     timeUI();
   }
-}
-
-function updateNavIndicator(target, instant = false) {
-  const indicator = $('.nav-indicator');
-  const navContainer = $('nav');
-  if (!indicator || !target || !navContainer) return;
-  
-  indicator.style.display = 'block';
-  const navBox = navContainer.getBoundingClientRect();
-  const targetBox = target.getBoundingClientRect();
-  const topOffset = targetBox.top - navBox.top;
-  
-  gsap.to(indicator, {
-    y: topOffset,
-    height: targetBox.height,
-    duration: instant ? 0 : 0.24,
-    ease: 'power2.out',
-    overwrite: 'auto'
-  });
 }
 
 function triggerViewEntrance(v) {

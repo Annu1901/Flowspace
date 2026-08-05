@@ -1249,25 +1249,23 @@ function getActiveProject() {
   return projects[0];
 }
 
-function normalizeStatus(s) {
-  if (!s) return 'todo';
-  const l = String(s).toLowerCase().trim();
-  if (l === 'done' || l === 'completed') return 'done';
-  if (l === 'in-progress' || l === 'progress' || l === 'in progress' || l === 'doing') return 'in-progress';
-  if (l === 'in-review' || l === 'review' || l === 'in review') return 'in-review';
-  return 'todo';
-}
-
 const esc = s => String(s || '').replace(/[&<>'"]/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[x]));
-const member = id => state.members.find(m => m.id === id);
+const member = id => (state.members || []).find(m => m.id === id);
 const date = v => v ? new Date(v + 'T12:00:00').toLocaleDateString('en', { month: 'short', day: 'numeric' }) : 'No due date';
 const activeWorkspace = () => state.activeWorkspaceId || state.workspace?.id;
 const currentTasks = () => {
-  const wsTasks = state.tasks.filter(t => (t.workspaceId || state.workspace?.id || state.activeWorkspaceId) === activeWorkspace());
+  const activeWs = activeWorkspace();
+  const wsTasks = (state.tasks || []).filter(t => {
+    const tWs = t.workspaceId || t.workspace_id || state.workspace?.id || state.activeWorkspaceId;
+    return tWs === activeWs;
+  });
   if (currentSelectedProjectId === 'all' || !currentSelectedProjectId) return wsTasks;
   const activeProj = getActiveProject();
   if (!activeProj) return wsTasks;
-  return wsTasks.filter(t => !t.projectId || t.projectId === activeProj.id || t.projectId === 'all' || (state.projects && state.projects.length === 1));
+  return wsTasks.filter(t => {
+    const tProj = t.projectId || t.project_id;
+    return !tProj || tProj === activeProj.id || tProj === 'all';
+  });
 };
 
 function timeUI() {
@@ -2373,43 +2371,68 @@ function showSignup() {
 }
 
 async function refresh() {
+  const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
+  if (user) {
+    try {
+      const sbData = await fetchSupabaseState(user);
+      if (sbData) {
+        state = sbData;
+        render();
+        return;
+      }
+    } catch (e) {
+      console.warn('Supabase state refresh note:', e);
+    }
+  }
+
   try {
     const res = await api('/api/state');
     if (res) {
       state = res;
+      render();
+      return;
     }
   } catch (e) {
     console.warn('Sync notice:', e);
   }
+
   if (!state) {
-    const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
-    const sbData = user ? await fetchSupabaseState(user) : null;
-    if (sbData) {
-      state = sbData;
-    } else {
-      const db = getStaticDb();
-      const activeId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
-      const ws = (db.workspaces || []).find(w => w.id === activeId) || (db.workspaces || [])[0] || { id: 'ws-1', name: 'Workspace' };
-      state = {
-        workspace: ws,
-        workspaces: db.workspaces || [],
-        activeWorkspaceId: ws.id,
-        projects: db.projects || [],
-        members: db.members || [],
-        invites: db.invites || [],
-        tasks: db.tasks || [],
-        activity: db.activity || [],
-        notifications: db.notifications || [],
-        pendingInvites: [],
-        receivedInvites: []
-      };
-    }
+    const db = getStaticDb();
+    const activeId = localStorage.getItem('flowspace_active_workspace') || 'ws-1';
+    const ws = (db.workspaces || []).find(w => w.id === activeId) || (db.workspaces || [])[0] || { id: 'ws-1', name: 'Workspace' };
+    state = {
+      workspace: ws,
+      workspaces: db.workspaces || [],
+      activeWorkspaceId: ws.id,
+      projects: db.projects || [],
+      members: db.members || [],
+      invites: db.invites || [],
+      tasks: db.tasks || [],
+      activity: db.activity || [],
+      notifications: db.notifications || [],
+      pendingInvites: [],
+      receivedInvites: []
+    };
   }
   render();
   try {
     checkPendingInvitePrompt();
   } catch (e) {}
 }
+
+// Live auto-sync every 5 seconds
+setInterval(async () => {
+  const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
+  if (user && state) {
+    try {
+      const sbData = await fetchSupabaseState(user);
+      if (sbData) {
+        state = sbData;
+        render();
+      }
+    } catch (e) {}
+  }
+}, 5000);
 
 async function saveTask(id, data) {
   const normStatus = data.status ? normalizeStatus(data.status) : undefined;
@@ -2487,11 +2510,12 @@ function taskForm(t = { status: 'todo', priority: 'medium', tags: [] }) {
 
   const projects = state.projects || [];
   const activeProj = getActiveProject();
-  const selectedProjId = t.projectId || activeProj?.id || projects[0]?.id || '';
+  const selectedProjId = t.projectId || (currentSelectedProjectId && currentSelectedProjectId !== 'all' ? currentSelectedProjectId : null) || activeProj?.id || projects[0]?.id || '';
 
   const projSelectMarkup = `<div class="field"><label>PROJECT</label><select name="projectId">${projects.map(p => `<option value="${p.id}" ${p.id === selectedProjId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>`;
+  const normalizedTaskStatus = normalizeStatus(t.status || 'todo');
 
-  return `<div class="modal"><div class="modal-head"><h2>${t.id ? 'Edit task' : 'Create a task'}</h2><button class="close">×</button></div><form id="task-form"><div class="form-grid"><div class="field full"><label>TASK TITLE</label><input required name="title" value="${esc(t.title || '')}" placeholder="What needs to happen?"></div><div class="field full"><label>DESCRIPTION</label><textarea name="description">${esc(t.description || '')}</textarea></div>${projSelectMarkup}<div class="field"><label>ASSIGNEE</label><select name="assigneeId"><option value="">Unassigned</option>${state.members.map(m => `<option value="${m.id}" ${m.id === t.assigneeId ? 'selected' : ''}>${esc(getMemberDisplayName(m))}</option>`).join('')}</select></div><div class="field"><label>DUE DATE</label><input type="date" name="dueDate" value="${t.dueDate || ''}"></div><div class="field"><label>STATUS</label><select name="status">${statuses.map(([k, n]) => `<option value="${k}" ${t.status === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label>PRIORITY</label><select name="priority">${['urgent', 'high', 'medium', 'low'].map(p => `<option ${t.priority === p ? 'selected' : ''}>${p}</option>`).join('')}</select></div><div class="field full"><label>TAG</label><input name="tag" value="${esc(t.tags?.[0] || '')}" placeholder="e.g. Design"></div></div><div class="modal-foot">${t.id && canDeleteTask ? '<button type="button" class="danger" id="delete-task">🗑️ Delete task</button>' : ''}<button type="button" class="secondary cancel">Cancel</button><button class="primary">${t.id ? 'Save task' : 'Create task'}</button></div></form></div>`;
+  return `<div class="modal"><div class="modal-head"><h2>${t.id ? 'Edit task' : 'Create a task'}</h2><button class="close">×</button></div><form id="task-form"><div class="form-grid"><div class="field full"><label>TASK TITLE</label><input required name="title" value="${esc(t.title || '')}" placeholder="What needs to happen?"></div><div class="field full"><label>DESCRIPTION</label><textarea name="description">${esc(t.description || '')}</textarea></div>${projSelectMarkup}<div class="field"><label>ASSIGNEE</label><select name="assigneeId"><option value="">Unassigned</option>${state.members.map(m => `<option value="${m.id}" ${m.id === t.assigneeId ? 'selected' : ''}>${esc(getMemberDisplayName(m))}</option>`).join('')}</select></div><div class="field"><label>DUE DATE</label><input type="date" name="dueDate" value="${t.dueDate || ''}"></div><div class="field"><label>STATUS</label><select name="status">${statuses.map(([k, n]) => `<option value="${k}" ${normalizedTaskStatus === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label>PRIORITY</label><select name="priority">${['urgent', 'high', 'medium', 'low'].map(p => `<option ${t.priority === p ? 'selected' : ''}>${p}</option>`).join('')}</select></div><div class="field full"><label>TAG</label><input name="tag" value="${esc(t.tags?.[0] || '')}" placeholder="e.g. Design"></div></div><div class="modal-foot">${t.id && canDeleteTask ? '<button type="button" class="danger" id="delete-task">🗑️ Delete task</button>' : ''}<button type="button" class="secondary cancel">Cancel</button><button class="primary">${t.id ? 'Save task' : 'Create task'}</button></div></form></div>`;
 }
 
 function wireTaskForm(t) {
@@ -2506,6 +2530,7 @@ function wireTaskForm(t) {
       const f = Object.fromEntries(new FormData(e.target));
       f.tags = f.tag ? [f.tag] : [];
       delete f.tag;
+      if (f.status) f.status = normalizeStatus(f.status);
       if (t.id) {
         await saveTask(t.id, f);
       } else {
@@ -2552,9 +2577,11 @@ function wireTaskForm(t) {
   }
 }
 
-function openNew() {
+function openNew(status = 'todo', projId = null) {
   if (getCurrentRole() === 'Viewer') return toast('Viewers have read-only access');
-  modal(taskForm());
+  const activeProj = getActiveProject();
+  const targetProjId = projId || (currentSelectedProjectId && currentSelectedProjectId !== 'all' ? currentSelectedProjectId : null) || activeProj?.id || (state.projects?.[0]?.id) || '';
+  modal(taskForm({ status: normalizeStatus(status), priority: 'medium', tags: [], projectId: targetProjId }));
   wireTaskForm({});
 }
 

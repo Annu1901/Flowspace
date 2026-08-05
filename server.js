@@ -564,7 +564,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/api/projects') {
       const userRecord = data.users.find(u => u.id === user.id);
-      const activeWsId = userRecord?.activeWorkspaceId || 'workspace-1';
+      const activeWsId = req.headers['x-workspace-id'] || userRecord?.activeWorkspaceId || 'workspace-1';
       if (getCallerRole(req, data, activeWsId) === 'Viewer') {
         return json(res, 403, { error: 'Viewers have read-only access and cannot create projects' });
       }
@@ -733,7 +733,7 @@ const server = http.createServer(async (req, res) => {
       if (getCallerRole(req, data) === 'Viewer') return json(res, 403, { error: 'Viewers have read-only access and cannot create tasks' });
       const b = await body(req);
       const userRecord = data.users.find(u => u.id === user.id);
-      const activeWsId = userRecord?.activeWorkspaceId || 'workspace-1';
+      const activeWsId = req.headers['x-workspace-id'] || userRecord?.activeWorkspaceId || 'workspace-1';
       if (!data.projects) data.projects = [];
       const wsProjects = data.projects.filter(p => p.workspaceId === activeWsId);
       const projId = b.projectId || wsProjects[0]?.id || '';

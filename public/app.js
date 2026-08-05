@@ -147,17 +147,31 @@ async function fetchSupabaseState(user) {
       workspaceMembers = Array.from(memMap.values());
 
       const { data: tsks } = await sb.from('tasks').select('*').eq('workspace_id', activeId);
-      workspaceTasks = (tsks || []).map(t => ({
-        ...t,
-        workspaceId: t.workspace_id || t.workspaceId,
-        projectId: t.project_id || t.projectId,
-        assigneeId: t.assignee_id || t.assigneeId,
-        createdBy: (t.created_by || t.createdBy || '').toLowerCase(),
-        dueDate: t.due_date || t.dueDate,
-        status: normalizeStatus(t.status),
-        attachments: t.attachments || [],
-        comments: t.comments || []
-      }));
+      const dbTaskMap = new Map();
+      (tsks || []).forEach(t => {
+        const norm = {
+          ...t,
+          workspaceId: t.workspace_id || t.workspaceId,
+          projectId: t.project_id || t.projectId,
+          assigneeId: t.assignee_id || t.assigneeId,
+          createdBy: (t.created_by || t.createdBy || '').toLowerCase(),
+          dueDate: t.due_date || t.dueDate,
+          status: normalizeStatus(t.status),
+          attachments: t.attachments || [],
+          comments: t.comments || []
+        };
+        dbTaskMap.set(norm.id, norm);
+      });
+
+      if (typeof state !== 'undefined' && state.tasks) {
+        state.tasks.forEach(lt => {
+          if ((lt.workspaceId === activeId || !lt.workspaceId) && !dbTaskMap.has(lt.id)) {
+            dbTaskMap.set(lt.id, lt);
+          }
+        });
+      }
+
+      workspaceTasks = Array.from(dbTaskMap.values());
 
       const { data: projs } = await sb.from('projects').select('*').eq('workspace_id', activeId);
       workspaceProjects = (projs || []).map(p => ({ ...p, workspaceId: p.workspace_id || p.workspaceId }));
@@ -1188,9 +1202,13 @@ const RENDER_BACKEND_URL = (window.location.hostname === 'localhost' || window.l
 
 async function api(url, opts = {}) {
   const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
+  const activeWs = localStorage.getItem('flowspace_active_workspace') || (typeof state !== 'undefined' ? state.activeWorkspaceId : '');
   const headers = { 'Content-Type': 'application/json' };
   if (user && user.id) {
     headers['x-user-id'] = user.id;
+  }
+  if (activeWs) {
+    headers['x-workspace-id'] = activeWs;
   }
   const targetUrl = (RENDER_BACKEND_URL && url.startsWith('/api')) ? RENDER_BACKEND_URL + url : url;
   try {

@@ -572,6 +572,26 @@ const server = http.createServer(async (req, res) => {
         createdAt: now(),
         updatedAt: now()
       };
+      data.projects.push(project);
+      log(data, user.name, 'created project', project.name);
+      save(data);
+
+      if (supabase) {
+        try {
+          const { data: newDbProj, error: pErr } = await supabase.from('projects').insert([{
+            workspace_id: activeWsId,
+            name: project.name,
+            description: project.description
+          }]).select();
+          if (newDbProj && newDbProj[0]) {
+            project.id = newDbProj[0].id;
+          }
+          if (pErr) console.error('Supabase project insert error in server.js:', pErr);
+        } catch (e) {
+          console.error('Supabase project insert exception in server.js:', e);
+        }
+      }
+
       return json(res, 201, project);
     }
     if (req.method === 'PATCH' && parts[0]==='api' && parts[1]==='workspaces' && parts[2]) {

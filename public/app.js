@@ -1185,6 +1185,15 @@ function getActiveProject() {
   return projects[0];
 }
 
+function normalizeStatus(s) {
+  if (!s) return 'todo';
+  const l = String(s).toLowerCase().trim();
+  if (l === 'done' || l === 'completed') return 'done';
+  if (l === 'in-progress' || l === 'progress' || l === 'in progress' || l === 'doing') return 'in-progress';
+  if (l === 'in-review' || l === 'review' || l === 'in review') return 'in-review';
+  return 'todo';
+}
+
 const esc = s => String(s || '').replace(/[&<>'"]/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[x]));
 const member = id => state.members.find(m => m.id === id);
 const date = v => v ? new Date(v + 'T12:00:00').toLocaleDateString('en', { month: 'short', day: 'numeric' }) : 'No due date';

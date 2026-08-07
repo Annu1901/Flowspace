@@ -1407,9 +1407,10 @@ function renderNotifications() {
 }
 
 function getCurrentRole() {
+  if (!state || !state.members) return 'Viewer';
   const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
   if (!user) return 'Viewer';
-  const m = state.members.find(x => x.email.toLowerCase() === user.email.toLowerCase());
+  const m = state.members.find(x => x.email && x.email.toLowerCase() === user.email.toLowerCase());
   return m?.role || 'Workspace member';
 }
 
@@ -1417,10 +1418,17 @@ function canUserModifyTask(t) {
   if (!t) return false;
   const role = getCurrentRole();
   if (role === 'Viewer') return false;
-  return true;
+  if (role === 'Workspace admin') return true;
+  const user = JSON.parse(localStorage.getItem('flowspace_user') || 'null');
+  if (!user) return false;
+  const userMember = (state?.members || []).find(x => x.email && x.email.toLowerCase() === user.email.toLowerCase());
+  const isAssignee = (t.assigneeId === user.id) || (userMember && t.assigneeId === userMember.id);
+  const isCreator = t.createdBy && t.createdBy.toLowerCase() === user.email.toLowerCase();
+  return isAssignee || isCreator;
 }
 
 function render() {
+  if (!state) return;
   const role = getCurrentRole();
   const isAdmin = role === 'Workspace admin';
   const isViewer = role === 'Viewer';
@@ -1441,16 +1449,17 @@ function render() {
 }
 
 function renderWorkspace() {
+  if (!state || !state.workspace) return;
   const w = state.workspace;
-  if (!w) return;
-  $('#workspace-name').textContent = w.name;
-  $('#workspace-desc').textContent = w.description || 'Workspace';
-  $('#workspace-initial').textContent = w.name.slice(0, 1).toUpperCase();
+  if ($('#workspace-name')) $('#workspace-name').textContent = w.name;
+  if ($('#workspace-desc')) $('#workspace-desc').textContent = w.description || 'Workspace';
+  if ($('#workspace-initial')) $('#workspace-initial').textContent = w.name.slice(0, 1).toUpperCase();
 }
 
 function renderOverview() {
+  if (!state || !state.tasks) return;
   const activeWsId = activeWorkspace();
-  const ts = state.tasks.filter(t => (t.workspaceId || state.workspace?.id || state.activeWorkspaceId) === activeWsId);
+  const ts = (state.tasks || []).filter(t => (t.workspaceId || state.workspace?.id || state.activeWorkspaceId) === activeWsId);
   const total = ts.length;
   const done = ts.filter(t => normalizeStatus(t.status) === 'done').length;
   const progress = ts.filter(t => normalizeStatus(t.status) === 'progress').length;
@@ -2813,7 +2822,8 @@ function checkPendingInvitePrompt() {
 }
 
 function manageWorkspace() {
-  modal(`<div class="modal"><div class="modal-head"><h2>Manage workspaces</h2><button class="close">×</button></div><div id="workspace-list">${state.workspaces.map(w => `<div class="invite-row"><div><b>${esc(w.name)}</b><small>${esc(w.description || 'No description')}</small></div>${w.id === state.activeWorkspaceId ? '<span class="tag">Current</span>' : `<button class="secondary select-workspace" data-id="${w.id}">Open</button>`}</div>`).join('')}</div><hr style="border:0;border-top:1px solid #e8ebf2;margin:18px 0"><form id="workspace-form"><div class="field"><label>WORKSPACE NAME</label><input required name="name" value="${esc(state.workspace.name)}"></div><div class="field"><label>DESCRIPTION</label><input name="description" value="${esc(state.workspace.description || '')}"></div><div class="modal-foot"><button class="primary">Rename current workspace</button></div></form><hr style="border:0;border-top:1px solid #e8ebf2;margin:18px 0"><form id="create-workspace"><div class="field"><label>NEW WORKSPACE NAME</label><input required name="name" placeholder="e.g. Client portal"></div><div class="field"><label>DESCRIPTION</label><input name="description" placeholder="What is this workspace for?"></div><div class="modal-foot"><button class="secondary">Create workspace</button></div></form></div>`);
+  if (!state || !state.workspaces) return;
+  modal(`<div class="modal"><div class="modal-head"><h2>Manage workspaces</h2><button class="close">×</button></div><div id="workspace-list">${(state.workspaces || []).map(w => `<div class="invite-row"><div><b>${esc(w.name)}</b><small>${esc(w.description || 'No description')}</small></div>${w.id === state.activeWorkspaceId ? '<span class="tag">Current</span>' : `<button class="secondary select-workspace" data-id="${w.id}">Open</button>`}</div>`).join('')}</div><hr style="border:0;border-top:1px solid #e8ebf2;margin:18px 0"><form id="workspace-form"><div class="field"><label>WORKSPACE NAME</label><input required name="name" value="${esc(state.workspace?.name || '')}"></div><div class="field"><label>DESCRIPTION</label><input name="description" value="${esc(state.workspace?.description || '')}"></div><div class="modal-foot"><button class="primary">Rename current workspace</button></div></form><hr style="border:0;border-top:1px solid #e8ebf2;margin:18px 0"><form id="create-workspace"><div class="field"><label>NEW WORKSPACE NAME</label><input required name="name" placeholder="e.g. Client portal"></div><div class="field"><label>DESCRIPTION</label><input name="description" placeholder="What is this workspace for?"></div><div class="modal-foot"><button class="secondary">Create workspace</button></div></form></div>`);
   $$('.select-workspace').forEach(b => b.onclick = async () => {
     const wsId = b.dataset.id;
     localStorage.setItem('flowspace_active_workspace', wsId);
